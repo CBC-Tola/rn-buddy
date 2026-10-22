@@ -1,0 +1,40 @@
+{
+  "name": "rn-buddy",
+  "version": "0.1.0",
+  "description": "A small CLI that explains your React Native project in plain English.",
+  "type": "module",
+  "bin": {
+    "rn-buddy": "./bin/rn-buddy.js"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "react-native",
+    "cli",
+    "beginner",
+    "learning",
+    "explain"
+  ],
+  "license": "MIT",
+  "author": "Vit Tola <vittola.work@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CBC-Tola/rn-buddy.git"
+  },
+  "homepage": "https://github.com/CBC-Tola/rn-buddy#readme",
+  "bugs": {
+    "url": "https://github.com/CBC-Tola/rn-buddy/issues"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "picocolors": "^1.1.1"
+  }
+}
