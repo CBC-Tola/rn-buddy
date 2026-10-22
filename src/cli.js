@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import pc from 'picocolors';
+import { env } from './commands/env.js';
 import { explain } from './commands/explain.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
@@ -17,6 +18,12 @@ export function run(argv) {
     .option('-d, --dir <path>', 'project folder (default: current folder)')
     .option('--offline', 'skip online lookups for packages rn-buddy does not know')
     .action((name, options) => explain(name, options));
+
+  program
+    .command('env')
+    .description('Check Node, Java and Ruby versions and lockfiles for a React Native project')
+    .option('-d, --dir <path>', 'project folder (default: current folder)')
+    .action((options) => env(options));
 
   program.parseAsync(argv).catch((error) => {
     console.error(pc.red(`✖ ${error.message}`));

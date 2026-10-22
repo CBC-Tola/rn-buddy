@@ -52,6 +52,22 @@ test('explain <package> works for packages not in the project', () => {
   assert.match(stdout, /Category +State/);
 });
 
+test('env checks tools and lockfiles', () => {
+  const ok = makeProject({ 'package.json': { name: 'EnvApp', engines: { node: '>=1' } }, 'package-lock.json': {} });
+  const { status, stdout } = rnBuddy('env', '--dir', ok);
+  assert.equal(status, 0);
+  assert.match(stdout, /Tools\n {2}✔ Node +\d+\.\d+\.\d+ +matches >=1/);
+  assert.match(stdout, /Lockfiles\n {2}✔ package-lock\.json/);
+  assert.match(stdout, /⚠ node_modules +not installed/);
+});
+
+test('env exits with 1 when something must be fixed', () => {
+  const old = makeProject({ 'package.json': { engines: { node: '>=999' } } });
+  const { status, stdout } = rnBuddy('env', '--dir', old);
+  assert.equal(status, 1);
+  assert.match(stdout, /✖ Node .*package\.json engines wants >=999/);
+});
+
 test('fails with a clear message outside a project', () => {
   const { status, stderr } = rnBuddy('explain', '--offline', '--dir', '/');
   assert.equal(status, 1);

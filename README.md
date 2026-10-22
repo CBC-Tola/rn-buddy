@@ -13,6 +13,7 @@ npx rn-buddy explain                    # explain all packages and root files
 npx rn-buddy explain react-native-svg   # details for one package
 npx rn-buddy explain --dir ../my-app    # explain another project
 npx rn-buddy explain --offline          # no network lookups
+npx rn-buddy env                        # check Node/Java/Ruby versions and lockfiles
 ```
 
 Example:
@@ -36,6 +37,32 @@ Tags:
 | `[native]` | Has iOS/Android code. After installing it, run `(cd ios && bundle exec pod install)` and rebuild the app. |
 | `[dev]` | A devDependency: used while developing (build, test, lint), not shipped in the app. |
 | `[unmaintained]` | Marked unmaintained on React Native Directory. Look for an alternative. |
+
+### Checking your setup: `env`
+
+```
+Tools
+  ✔ Node  22.23.3  matches >= 22.11.0 (package.json engines)
+  ⚠ Java  21.0.12  .java-version wants 17, JAVA_HOME is newer
+          → Gradle uses JAVA_HOME. Point it at JDK 17, or update .java-version if 21 builds fine
+  ✔ Ruby  4.0.7    matches >=2.6.10 (Gemfile)
+
+Lockfiles
+  ✔ package-lock.json  npm, matches package.json
+  ✔ node_modules       installed
+  ✔ Gemfile.lock       Ruby gem versions are locked
+  ✔ ios/Podfile.lock   matches the installed pods
+```
+
+| Check | Compared with |
+|---|---|
+| Node | `engines` in package.json and in `react-native`, `.nvmrc`, `.node-version` |
+| Java (if `android/` exists) | `.java-version`, or JDK 17 as the React Native docs recommend. Uses `JAVA_HOME` when set, because Gradle does |
+| Ruby (macOS, if there is a `Gemfile`) | the `ruby` line in `Gemfile`, `.ruby-version` |
+| JS lockfile | only one package manager; `package-lock.json` matches package.json; `packageManager` field |
+| `Gemfile.lock`, `ios/Podfile.lock` | exists; installed pods (`ios/Pods/Manifest.lock`) match `Podfile.lock` |
+
+`✖` means the build will fail and `env` exits with code 1, so you can also use it in CI. `⚠` is worth a look but may be fine.
 
 ### Where the explanations come from
 
@@ -61,6 +88,13 @@ To use the `rn-buddy` command anywhere on your machine while developing:
 npm link        # inside this folder
 rn-buddy explain
 npm unlink -g rn-buddy   # when you're done
+```
+
+## Or install globally:
+
+```sh
+npm i -g rn-buddy
+rn-buddy explain
 ```
 
 ### Project layout
@@ -102,7 +136,7 @@ If npm rejects the name as too similar to an existing package, use a scoped name
 ## Roadmap
 
 - [x] `explain`: understand packages and files
-- [ ] `env`: check Node/Java/Ruby versions and lockfiles for this project
+- [x] `env`: check Node/Java/Ruby versions and lockfiles for this project
 - [ ] `structure`: add a `src/` folder layout with a README in each folder
 - [ ] `add <recipe | package>`: install features (navigation, state, api) the right way
 
