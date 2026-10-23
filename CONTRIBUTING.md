@@ -27,6 +27,7 @@ src/commands/            # one file per command: what it prints
 src/lib/                 # the logic: project reading, notes, online lookups, env checks, structure
 src/data/explain.json    # plain-English notes for packages and files
 src/templates/structure/ # README templates that `structure` writes
+src/templates/recipes/   # starter files and next steps for each `add` recipe
 test/                    # node:test tests
 ```
 
@@ -58,3 +59,10 @@ Each folder's README comes from `src/templates/structure/<folder>.md` (`src.md` 
 | line ending in `<!-- js -->` | removed | kept |
 
 The text before the first period or colon in each template is the description `structure` prints.
+
+## Adding a recipe
+
+1. Add an entry to `RECIPES` in `src/lib/recipes.js`: `summary`, `docs`, `packages`, `files` and `edits`.
+2. For every entry in `files`, add a template in `src/templates/recipes/<recipe>/`. Name it after the file, with the extension filled in and `.tpl` added. For example, `src/store/useCounterStore.{ts}` comes from `state/useCounterStore.ts.tpl`. It uses the same placeholders as the `structure` templates.
+3. Add `src/templates/recipes/<recipe>/next.md`: the next steps printed after the recipe runs.
+4. `edits` change native files. An edit returns the new content, the same content when the change is already there, or `null` when the file looks unfamiliar and the user has to make the change by hand. Test edits against the current React Native template.

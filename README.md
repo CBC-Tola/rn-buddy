@@ -5,6 +5,7 @@ A small CLI for people learning React Native. Run it inside your project to:
 - **`explain`**: find out what each package, file and folder is for, in plain English
 - **`env`**: check that your Node, Java and Ruby versions and your lockfiles are right for this project
 - **`structure`**: add a `src/` folder layout with a README in each folder that explains what goes there
+- **`add`**: install navigation, state management or API loading the right way, or any package, including the native setup
 
 Made for projects created with the [React Native Community CLI](https://github.com/react-native-community/cli).
 
@@ -37,6 +38,10 @@ rn-buddy explain --offline             # use only the built-in notes, no network
 rn-buddy env                           # check tool versions and lockfiles
 rn-buddy structure --dry-run           # preview the src/ folder layout
 rn-buddy structure                     # create it
+rn-buddy add                           # list the recipes
+rn-buddy add navigation                # install a recipe: navigation, state or api
+rn-buddy add react-native-svg          # install any package the right way
+rn-buddy add prettier --dev            # install as a devDependency
 rn-buddy <command> --help              # options for one command
 ```
 
@@ -130,10 +135,11 @@ Lockfiles
 | JS lockfile | Only one package manager is used, `package-lock.json` matches package.json, and the `packageManager` field matches |
 | `node_modules` | Packages are installed |
 | `Gemfile.lock`, `ios/Podfile.lock` | They exist, and the installed pods match `Podfile.lock` |
+| Bundler and Ruby gems (on macOS) | `Gemfile.lock` wasn't made with a Bundler too old for your Ruby, and the gems are installed (`bundle check`), so `pod install` can run |
 
 - `✖` means the build will fail. `env` then exits with code 1, so you can also use it in CI.
 - `⚠` is worth a look but may be fine.
-- `env` runs `java -version` and `ruby -v` on your machine and doesn't use the network.
+- `env` runs `java -version`, `ruby -v` and `bundle check` on your machine and doesn't use the network.
 
 ## `structure`: where should my code go?
 
@@ -159,12 +165,74 @@ src/
 - Run `rn-buddy structure --dry-run` first to see what it would create.
 - Git doesn't track empty folders. Each folder has a README, so the layout gets committed.
 
+## `add`: install features the right way
+
+Adding a library to a React Native app often takes more than `npm install`. You may need to run `pod install` for iOS, edit native Android files, and rebuild the app. `add` does all of that, and shows you the plan before it changes anything.
+
+### Recipes
+
+| Recipe | Installs | Creates | Native setup |
+|---|---|---|---|
+| `navigation` | [React Navigation](https://reactnavigation.org) with a native stack: `@react-navigation/native`, `@react-navigation/native-stack`, `react-native-screens`, `react-native-safe-area-context` | `src/navigation/index`, `src/screens/HomeScreen`, `src/screens/DetailsScreen` | Adds the `react-native-screens` code to `MainActivity` and turns off predictive back in `AndroidManifest.xml`, as the React Navigation docs ask |
+| `state` | [Zustand](https://zustand.docs.pmnd.rs) | `src/store/useCounterStore`, an example store | none |
+| `api` | [TanStack Query](https://tanstack.com/query) | `src/services/api` (a `fetch` helper), `src/services/queryClient`, `src/hooks/useTodos` (an example query) | none |
+
+```
+$ rn-buddy add navigation
+add navigation  Move between screens with React Navigation (native stack)
+
+  Install   @react-navigation/native
+            @react-navigation/native-stack
+            react-native-screens
+            $ npm install @react-navigation/native @react-navigation/native-stack react-native-screens
+  Installed react-native-safe-area-context already installed
+  Create    src/navigation/index.tsx
+            src/screens/HomeScreen.tsx
+            src/screens/DetailsScreen.tsx
+  Edit      android/app/src/main/java/com/reactnativedemo/MainActivity.kt
+              react-native-screens setup, so Android can restore the app without crashing
+            android/app/src/main/AndroidManifest.xml
+              turn off predictive back, which React Navigation doesn't support yet
+  Then      (cd ios && bundle exec pod install) if a new package has native code
+
+Make these changes? (Y/n)
+```
+
+When it's done, it prints the next steps, such as the code to put in `App.tsx`, and a link to the library's docs.
+
+### Any package
+
+`rn-buddy add <package>` installs any npm package:
+
+- **Package manager:** it uses the one your project uses, based on its lockfile (npm, Yarn, pnpm or Bun).
+- **Checks before installing:**
+  - The package exists on npm.
+  - Its latest version supports your `react` and `react-native` versions.
+  - React Native Directory doesn't mark it unmaintained or without New Architecture support.
+- **After installing:** if the package has native code, it runs `pod install` (on macOS) and tells you to rebuild the app.
+- **Recipe packages:** if the package belongs to a recipe, for example `react-native-screens`, it suggests the recipe instead.
+
+### Safe to run
+
+- It shows the plan and asks before changing anything. Use `--dry-run` to see the plan only, or `--yes` to skip the question (needed in scripts and CI).
+- Existing files are never overwritten. A native file that doesn't look like the React Native template is left alone, and `add` tells you what to change by hand.
+- If the install fails, nothing else is changed.
+- The checks send package names to npm and React Native Directory. Use `--offline` to skip them.
+
+| Option | Meaning |
+|---|---|
+| `--dry-run` | Show what would change, change nothing |
+| `-y, --yes` | Don't ask before making the changes |
+| `-D, --dev` | Install the package as a devDependency |
+| `--offline` | Skip the npm and React Native Directory checks |
+| `-d, --dir <path>` | Run on another project folder |
+
 ## Roadmap
 
 - [x] `explain`: understand packages and files
 - [x] `env`: check Node/Java/Ruby versions and lockfiles
 - [x] `structure`: add a `src/` folder layout with a README in each folder
-- [ ] `add <recipe | package>`: install features (navigation, state, API) the right way
+- [x] `add <recipe | package>`: install features (navigation, state, API) the right way
 
 ## Contributing
 

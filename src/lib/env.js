@@ -2,20 +2,13 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import semver from 'semver';
+import { LOCKFILES } from './project.js';
 
 // The JDK the React Native docs recommend for Android builds.
 // https://reactnative.dev/docs/set-up-your-environment
 export const RECOMMENDED_JDK = '17';
 
 const POD_INSTALL = '(cd ios && bundle exec pod install)';
-
-const LOCKFILES = {
-  'package-lock.json': 'npm',
-  'yarn.lock': 'yarn',
-  'pnpm-lock.yaml': 'pnpm',
-  'bun.lock': 'bun',
-  'bun.lockb': 'bun',
-};
 
 // Every check returns a row: { name, status: 'ok' | 'warn' | 'fail' | 'skip', message, version?, hint? }
 
@@ -29,7 +22,16 @@ export function detectTools(root, env = process.env) {
     java: commandVersion(java, ['-version'], root),
     javaHome: env.JAVA_HOME ?? null,
     ruby: commandVersion('ruby', ['-v'], root),
+    bundler: commandVersion('bundle', ['-v'], root),
+    gemsInstalled: gemsInstalled(root),
   };
+}
+
+// Whether `bundle check` finds every gem in the Gemfile. null when there is no Gemfile or no Bundler.
+function gemsInstalled(root) {
+  if (!existsSync(path.join(root, 'Gemfile'))) return null;
+  const result = spawnSync('bundle', ['check'], { cwd: root });
+  return result.error ? null : result.status === 0;
 }
 
 export function checkTools({ root, pkg }, tools, platform = process.platform) {
@@ -38,7 +40,7 @@ export function checkTools({ root, pkg }, tools, platform = process.platform) {
   );
 }
 
-export function checkLockfiles({ root, pkg }, platform = process.platform) {
+export function checkLockfiles({ root, pkg }, platform = process.platform, tools = {}) {
   const jsLockfile = checkJsLockfile(root, pkg);
   const manager = LOCKFILES[jsLockfile.name] ?? 'npm';
   const rows = [
@@ -49,14 +51,37 @@ export function checkLockfiles({ root, pkg }, platform = process.platform) {
   ];
 
   if (existsSync(path.join(root, 'Gemfile'))) {
-    rows.push(
-      existsSync(path.join(root, 'Gemfile.lock'))
-        ? { name: 'Gemfile.lock', status: 'ok', message: 'Ruby gem versions are locked' }
-        : { name: 'Gemfile.lock', status: 'warn', message: 'not found', hint: 'Run bundle install and commit Gemfile.lock' },
-    );
+    const gemfileLock = checkGemfileLock(root, platform, tools);
+    rows.push(gemfileLock);
+    if (gemfileLock.status === 'ok' && tools.gemsInstalled === false && platform === 'darwin') {
+      rows.push({
+        name: 'Ruby gems',
+        status: 'warn',
+        message: 'not installed, so pod install will fail',
+        hint: 'Run bundle install',
+      });
+    }
   }
   rows.push(checkPods(root, platform));
   return rows.filter(Boolean);
+}
+
+// Bundler 1.x calls String#untaint, which Ruby 3.2 removed. Newer Bundlers switch to the
+// version in "BUNDLED WITH" and crash, so `bundle install` and `pod install` both fail.
+function checkGemfileLock(root, platform, { ruby, bundler }) {
+  const lock = readText(path.join(root, 'Gemfile.lock'));
+  if (!lock) return { name: 'Gemfile.lock', status: 'warn', message: 'not found', hint: 'Run bundle install and commit Gemfile.lock' };
+
+  const bundledWith = lock.match(/^BUNDLED WITH\s+(\S+)/m)?.[1];
+  if (platform === 'darwin' && bundledWith && ruby && semver.coerce(bundledWith)?.major < 2 && semver.gte(ruby, '3.2.0')) {
+    return {
+      name: 'Gemfile.lock',
+      status: 'fail',
+      message: `made with Bundler ${bundledWith}, which doesn't run on Ruby ${ruby}`,
+      hint: `Run BUNDLE_VERSION=system bundle update --bundler${bundler ? `=${bundler}` : ''}`,
+    };
+  }
+  return { name: 'Gemfile.lock', status: 'ok', message: 'Ruby gem versions are locked' };
 }
 
 // The `ruby "..."` line of a Gemfile as a node-semver range:

@@ -8,8 +8,9 @@ const ICONS = { ok: pc.green('✔'), warn: pc.yellow('⚠'), fail: pc.red('✖')
 export function env(options = {}) {
   const project = readProject(options.dir ?? process.cwd());
   const { root, pkg } = project;
-  const tools = checkTools(project, detectTools(root));
-  const lockfiles = checkLockfiles(project);
+  const installed = detectTools(root);
+  const tools = checkTools(project, installed);
+  const lockfiles = checkLockfiles(project, process.platform, installed);
 
   const reactNative = pkg.dependencies?.['react-native'];
   console.log(pc.bold(pkg.name ?? path.basename(root)) + (reactNative ? pc.dim(` · React Native ${reactNative}`) : ''));

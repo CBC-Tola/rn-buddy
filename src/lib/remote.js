@@ -45,10 +45,14 @@ export async function directoryInfo(name) {
   };
 }
 
+// The package.json of the latest version on npm, or null if the package doesn't exist (or we're offline).
+export async function npmLatest(name) {
+  return getJson(`https://registry.npmjs.org/${name.replace('/', '%2F')}/latest`);
+}
+
 // The "description" field from the package's latest version on npm.
 export async function npmDescription(name) {
-  const data = await getJson(`https://registry.npmjs.org/${name.replace('/', '%2F')}/latest`);
-  return data?.description ?? null;
+  return (await npmLatest(name))?.description ?? null;
 }
 
 // Tries React Native Directory first, then npm.

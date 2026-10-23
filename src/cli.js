@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import pc from 'picocolors';
+import { add } from './commands/add.js';
 import { env } from './commands/env.js';
 import { explain } from './commands/explain.js';
 import { structure } from './commands/structure.js';
@@ -32,6 +33,17 @@ export function run(argv) {
     .option('-d, --dir <path>', 'project folder (default: current folder)')
     .option('--dry-run', 'show what would be created without writing files')
     .action((options) => structure(options));
+
+  program
+    .command('add')
+    .description('Install a recipe (navigation, state, api) or any package the right way')
+    .argument('[name]', 'a recipe (navigation, state, api) or a package name; leave out to list recipes')
+    .option('-d, --dir <path>', 'project folder (default: current folder)')
+    .option('-D, --dev', 'install the package as a devDependency')
+    .option('--dry-run', 'show what would change without changing anything')
+    .option('-y, --yes', 'make the changes without asking')
+    .option('--offline', 'skip the npm and React Native Directory checks')
+    .action((name, options) => add(name, options));
 
   program.parseAsync(argv).catch((error) => {
     console.error(pc.red(`✖ ${error.message}`));

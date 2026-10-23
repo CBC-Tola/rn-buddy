@@ -126,6 +126,41 @@ test('structure creates the layout once', () => {
   assert.match(second.stdout, /Nothing to do/);
 });
 
+test('add without a name lists the recipes', () => {
+  const { status, stdout } = rnBuddy('add');
+  assert.equal(status, 0);
+  assert.match(stdout, /navigation +Move between screens/);
+  assert.match(stdout, /state +Share state/);
+  assert.match(stdout, /api +Load data/);
+});
+
+test('add <recipe> --dry-run shows the plan and changes nothing', () => {
+  const root = makeProject({ 'package.json': { dependencies: { 'react-native-safe-area-context': '^5.0.0' } } });
+  const { status, stdout } = rnBuddy('add', 'navigation', '--dry-run', '--offline', '--dir', root);
+  assert.equal(status, 0);
+  assert.match(stdout, /Install +@react-navigation\/native\n/);
+  assert.match(stdout, /\$ npm install @react-navigation\/native @react-navigation\/native-stack react-native-screens/);
+  assert.match(stdout, /Installed +react-native-safe-area-context already installed/);
+  assert.match(stdout, /Create +src\/navigation\/index\.js/);
+  assert.match(stdout, /Dry run: nothing was changed/);
+  assert.equal(existsSync(path.join(root, 'src')), false);
+});
+
+test('add asks for --yes when it cannot prompt', () => {
+  const root = makeProject({ 'package.json': {} });
+  const { status, stderr } = rnBuddy('add', 'state', '--offline', '--dir', root);
+  assert.equal(status, 1);
+  assert.match(stderr, /Add --yes/);
+});
+
+test('add <package> that is already installed has nothing to do', () => {
+  const root = makeProject({ 'package.json': { dependencies: { zustand: '^5.0.0' } } });
+  const { status, stdout } = rnBuddy('add', 'zustand', '--dir', root);
+  assert.equal(status, 0);
+  assert.match(stdout, /Nothing to do: zustand is already installed/);
+  assert.match(stdout, /rn-buddy add state/);
+});
+
 test('fails with a clear message outside a project', () => {
   const { status, stderr } = rnBuddy('explain', '--offline', '--dir', '/');
   assert.equal(status, 1);

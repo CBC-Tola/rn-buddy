@@ -27,6 +27,32 @@ export function readProject(startDir) {
   return { root, pkg, deps };
 }
 
+// Which package manager each lockfile belongs to.
+export const LOCKFILES = {
+  'package-lock.json': 'npm',
+  'yarn.lock': 'yarn',
+  'pnpm-lock.yaml': 'pnpm',
+  'bun.lock': 'bun',
+  'bun.lockb': 'bun',
+};
+
+// The package manager this project uses: from its lockfile, then the
+// "packageManager" field, and npm when there is neither.
+export function packageManager(root, pkg) {
+  const lockfile = Object.keys(LOCKFILES).find((file) => existsSync(path.join(root, file)));
+  if (lockfile) return LOCKFILES[lockfile];
+  return pkg.packageManager?.split('@')[0] || 'npm';
+}
+
+// The version in node_modules, or null when the package is not installed.
+export function installedVersion(root, name) {
+  try {
+    return JSON.parse(readFileSync(path.join(root, 'node_modules', name, 'package.json'), 'utf8')).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function hasNodeModules(root) {
   return existsSync(path.join(root, 'node_modules'));
 }

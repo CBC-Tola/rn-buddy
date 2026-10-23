@@ -1,8 +1,9 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import pc from 'picocolors';
-import { applyStructure, isTypeScript, planStructure } from '../lib/structure.js';
 import { readProject } from '../lib/project.js';
+import { applyStructure, planStructure } from '../lib/structure.js';
+import { isTypeScript } from '../lib/templates.js';
 
 export function structure(options = {}) {
   const { root, pkg } = readProject(options.dir ?? process.cwd());

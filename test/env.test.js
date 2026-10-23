@@ -11,8 +11,8 @@ function tools(files, installed = {}, platform = 'darwin') {
   return Object.fromEntries(rows.map((row) => [row.name, row]));
 }
 
-function lockfiles(files, platform = 'darwin') {
-  const rows = checkLockfiles(readProject(makeProject({ 'package.json': {}, ...files })), platform);
+function lockfiles(files, platform = 'darwin', installed = {}) {
+  const rows = checkLockfiles(readProject(makeProject({ 'package.json': {}, ...files })), platform, installed);
   return Object.fromEntries(rows.map((row) => [row.name, row]));
 }
 
@@ -104,4 +104,18 @@ test('lockfiles: checks Gemfile.lock, node_modules and pods', () => {
   assert.equal(lockfiles({ ...pods, 'ios/Pods/Manifest.lock': 'PODS: a' })['ios/Podfile.lock'].status, 'ok');
   assert.equal(lockfiles({ ...pods, 'ios/Pods/Manifest.lock': 'PODS: b' })['ios/Podfile.lock'].status, 'warn');
   assert.equal(lockfiles(pods, 'linux')['ios/Podfile.lock'].status, 'skip');
+});
+
+test('lockfiles: Gemfile.lock made with Bundler 1.x fails on Ruby 3.2+', () => {
+  const files = { Gemfile: '', 'Gemfile.lock': 'GEM\n\nBUNDLED WITH\n   1.17.2\n' };
+  const row = lockfiles(files, 'darwin', { ruby: '4.0.7', bundler: '4.0.20' })['Gemfile.lock'];
+  assert.equal(row.status, 'fail');
+  assert.match(row.hint, /bundle update --bundler=4\.0\.20/);
+  assert.equal(lockfiles(files, 'darwin', { ruby: '3.1.0' })['Gemfile.lock'].status, 'ok');
+});
+
+test('lockfiles: warns when the Ruby gems are not installed', () => {
+  const files = { Gemfile: '', 'Gemfile.lock': 'BUNDLED WITH\n   2.5.0\n' };
+  assert.equal(lockfiles(files, 'darwin', { gemsInstalled: false })['Ruby gems'].status, 'warn');
+  assert.equal(lockfiles(files, 'darwin', { gemsInstalled: true })['Ruby gems'], undefined);
 });

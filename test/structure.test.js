@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { applyStructure, FOLDERS, planStructure, renderTemplate } from '../src/lib/structure.js';
+import { applyStructure, FOLDERS, planStructure } from '../src/lib/structure.js';
+import { renderTemplate } from '../src/lib/templates.js';
 import { makeProject } from './helpers.js';
 
 const TEMPLATE = [
