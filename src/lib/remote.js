@@ -65,3 +65,12 @@ export async function describeOnline(name) {
 
   return null;
 }
+
+// npm's dist-tags for a package ({ latest: '1.2.3', next: ... }), or null.
+// The abbreviated metadata is much smaller than the full document.
+export async function npmDistTags(name) {
+  const data = await getJson(`https://registry.npmjs.org/${name.replace('/', '%2F')}`, {
+    headers: { accept: 'application/vnd.npm.install-v1+json' },
+  });
+  return data?.['dist-tags'] ?? null;
+}

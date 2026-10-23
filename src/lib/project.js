@@ -53,6 +53,12 @@ export function installedVersion(root, name) {
   }
 }
 
+// Expo projects depend on the `expo` package. Their native folders are usually generated
+// (`npx expo prebuild`), and native setup goes through config plugins in app.json.
+export function isExpo(pkg) {
+  return Boolean(pkg.dependencies?.expo ?? pkg.devDependencies?.expo);
+}
+
 export function hasNodeModules(root) {
   return existsSync(path.join(root, 'node_modules'));
 }

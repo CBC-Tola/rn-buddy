@@ -1,0 +1,1012 @@
+{
+  "about": [
+    "Error signatures for `rn-buddy why`. Each entry: id, area (one of areas), patterns (regex strings, matched with `flags`, default \"i\"),",
+    "title (what happened, in plain English), causes, fixes, and optional then, learn (a `rn-buddy learn` topic), clean (a `rn-buddy clean --<level>`),",
+    "docs (a URL), probe (a project check in src/lib/errors.js), defaults (values for placeholders a pattern may not capture),",
+    "kind (\"wrapper\": a generic 'the build failed' line, \"warning\": not fatal) and expo (causes/fixes/then to use in Expo projects instead).",
+    "List the most specific pattern first: the first pattern that matches fills the placeholders.",
+    "Named groups like (?<module>...) fill {module} in the text. Always available: {install} {reinstall} {start} {resetCache} {runAndroid} {runIos} {podExec} {podInstall} {appId}.",
+    "Put commands in `backticks` so they stand out."
+  ],
+  "areas": ["Metro / JS", "Native modules", "Android", "iOS", "React", "Expo"],
+  "learn": ["reload-vs-rebuild", "metro", "autolinking", "new-architecture", "debug-vs-release", "pods", "gradle", "expo-go"],
+  "clean": ["metro", "watchman", "android", "ios", "pods", "deps"],
+  "errors": [
+    {
+      "id": "unable-to-resolve-module",
+      "area": "Metro / JS",
+      "patterns": ["Unable to resolve module [`'\"]?(?<module>[^\\s`'\"]+)[`'\"]?(?: from [`'\"]?(?<from>(?:[A-Za-z]:)?[^:`'\"\\n]+))?"],
+      "title": "Metro can't find {module}.",
+      "causes": [
+        "The package isn't installed, or was installed while Metro was running",
+        "The import path has a typo, or the wrong upper/lower case (macOS forgives that, Android builds and CI don't)",
+        "Metro's cache is out of date"
+      ],
+      "fixes": ["If it's a package: `{install} {module}`", "If it's one of your files: check the path and its spelling"],
+      "then": "Restart Metro with a clean cache: `{resetCache}`",
+      "probe": "module",
+      "learn": "metro",
+      "clean": "metro",
+      "docs": "https://metrobundler.dev/docs/resolution/"
+    },
+    {
+      "id": "no-bundle-url",
+      "area": "Metro / JS",
+      "patterns": ["No bundle URL present"],
+      "title": "The iOS app couldn't get its JavaScript from Metro.",
+      "causes": [
+        "Metro isn't running",
+        "The app was built while Metro was on another port, or Metro crashed",
+        "On a real iPhone: the phone and your computer aren't on the same Wi-Fi, or Local Network access is off for the app"
+      ],
+      "fixes": [
+        "Start Metro in the project folder and keep it open: `{start}`",
+        "Then build and run the app again: `{runIos}`",
+        "On a real iPhone: same Wi-Fi, and Settings → Privacy & Security → Local Network → allow the app"
+      ],
+      "learn": "metro",
+      "clean": "ios",
+      "docs": "https://reactnative.dev/docs/running-on-device"
+    },
+    {
+      "id": "metro-not-reachable",
+      "area": "Metro / JS",
+      "patterns": [
+        "Unable to load script\\.? Make sure you(?:'|’)re either running Metro",
+        "Could not connect to development server"
+      ],
+      "title": "The app couldn't reach Metro to load your JavaScript.",
+      "causes": [
+        "Metro isn't running",
+        "Android: the device can't reach port 8081 on your computer (the port isn't forwarded)",
+        "A real phone is on another Wi-Fi network than your computer"
+      ],
+      "fixes": [
+        "Start Metro in the project folder: `{start}`",
+        "Android: forward the port to the device: `adb reverse tcp:8081 tcp:8081`",
+        "Then reload: press r in the Metro terminal"
+      ],
+      "learn": "metro",
+      "docs": "https://reactnative.dev/docs/running-on-device"
+    },
+    {
+      "id": "port-in-use",
+      "area": "Metro / JS",
+      "patterns": [
+        "EADDRINUSE:? address already in use \\S*?:(?<port>\\d+)",
+        "Port (?<port>\\d+) is (?:already in use|being used by another process)"
+      ],
+      "title": "Port {port} is already taken, so Metro can't start.",
+      "causes": ["Another Metro is still running, in an old terminal or for another project", "Another program uses port {port}"],
+      "fixes": [
+        "See what uses it: `lsof -i :{port}` (Windows: `netstat -ano | findstr :{port}`)",
+        "Close that terminal, or stop the process: `kill <PID>`",
+        "Or run Metro on another port: `npx react-native start --port 8082`, and the app with `--port 8082` too"
+      ],
+      "learn": "metro"
+    },
+    {
+      "id": "app-not-registered",
+      "area": "Metro / JS",
+      "patterns": ["\"(?<app>[^\"]+)\" has not been registered", "Application (?<app>\\S+) has not been registered"],
+      "title": "The native app asked for a component named \"{app}\", but your JavaScript didn't register it.",
+      "causes": [
+        "Metro is running from another project folder",
+        "The name in index.js (AppRegistry.registerComponent) differs from the one the native app asks for (getMainComponentName in MainActivity, withModuleName in AppDelegate)",
+        "An error earlier stopped index.js before it registered the app: look for the first red error above this one"
+      ],
+      "fixes": ["Stop every Metro, then start it in this project: `{resetCache}`", "Use the same name everywhere: index.js registers the name from app.json"],
+      "probe": "appName",
+      "learn": "metro",
+      "clean": "metro",
+      "expo": {
+        "causes": [
+          "An error while loading your app stopped it before it registered: look for the first red error above this one",
+          "\"main\" in package.json points to the wrong file (Expo Router projects use \"expo-router/entry\")",
+          "Metro is running from another project folder"
+        ],
+        "fixes": ["Fix the first error in the log", "Check \"main\" in package.json", "Restart with a clean cache: `npx expo start --clear`"]
+      }
+    },
+    {
+      "id": "watchman-recrawl",
+      "area": "Metro / JS",
+      "kind": "warning",
+      "patterns": ["Recrawled this watch \\d+ times?"],
+      "title": "Watchman lost track of your files and had to rescan the project.",
+      "causes": ["Many files changed at once (a git checkout, npm install)", "Watchman's saved state is out of date"],
+      "fixes": ["Reset Watchman: `watchman watch-del-all`, then `watchman shutdown-server`"],
+      "then": "Restart Metro: `{start}`",
+      "learn": "metro",
+      "clean": "watchman",
+      "docs": "https://facebook.github.io/watchman/docs/troubleshooting#recrawl"
+    },
+    {
+      "id": "too-many-open-files",
+      "area": "Metro / JS",
+      "patterns": ["EMFILE: too many open files", "ENOSPC: System limit for number of file watchers reached"],
+      "title": "Metro ran out of file watchers.",
+      "causes": [
+        "Watchman isn't installed, so Node watches every file itself",
+        "Linux: the system limit for watched files (inotify) is too low"
+      ],
+      "fixes": [
+        "macOS: install Watchman: `brew install watchman`",
+        "Linux: raise the limit: `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p`"
+      ],
+      "then": "Restart Metro: `{start}`",
+      "learn": "metro",
+      "clean": "watchman"
+    },
+    {
+      "id": "network-request-failed",
+      "area": "Metro / JS",
+      "patterns": ["TypeError: Network request failed"],
+      "title": "A fetch() call couldn't reach the server.",
+      "causes": [
+        "The URL uses localhost: on an Android emulator that's the emulator itself, on a phone it's the phone",
+        "The URL is http:// and the platform blocks plain HTTP (Android release builds, iOS unless allowed in Info.plist)",
+        "The server isn't running, or the device is offline"
+      ],
+      "fixes": [
+        "Android emulator: use http://10.0.2.2:<port> instead of localhost, or forward the port: `adb reverse tcp:<port> tcp:<port>`",
+        "Real phone: use your computer's IP address on the same Wi-Fi, or an https:// URL",
+        "Use https:// for real servers"
+      ],
+      "learn": "debug-vs-release",
+      "docs": "https://reactnative.dev/docs/network"
+    },
+    {
+      "id": "property-doesnt-exist",
+      "area": "Metro / JS",
+      "patterns": ["ReferenceError: Property '(?<name>[^']+)' doesn't exist"],
+      "title": "Your code uses {name}, but nothing named {name} exists where it runs.",
+      "causes": [
+        "A typo, or a missing import of {name}",
+        "{name} is a browser or Node.js global that React Native doesn't have (like localStorage, document or Buffer)"
+      ],
+      "fixes": ["Find {name} in your code (the stack trace under the error shows the file) and import or declare it", "For browser/Node globals, use a React Native package instead (e.g. @react-native-async-storage/async-storage for localStorage)"]
+    },
+    {
+      "id": "turbomodule-not-found",
+      "area": "Native modules",
+      "patterns": ["TurboModuleRegistry\\.getEnforcing\\(\\.\\.\\.\\): '(?<module>[^']+)' could not be found"],
+      "title": "The native module {module} isn't in the app you're running.",
+      "causes": [
+        "A package with native code was installed, but the app wasn't rebuilt (reloading only updates JavaScript)",
+        "iOS: pod install wasn't run after installing it",
+        "In Expo Go: the package needs native code that Expo Go doesn't have"
+      ],
+      "fixes": ["iOS: `{podInstall}`", "Rebuild the app: `{runAndroid}` or `{runIos}`"],
+      "probe": "nativeModule",
+      "learn": "reload-vs-rebuild",
+      "docs": "https://reactnative.dev/docs/turbo-native-modules-introduction"
+    },
+    {
+      "id": "native-component-not-found",
+      "area": "Native modules",
+      "patterns": ["requireNativeComponent: \"(?<module>[^\"]+)\" was not found in the UIManager", "Unimplemented component: <(?<module>[^>]+)>"],
+      "title": "The native view {module} isn't in the app you're running.",
+      "causes": [
+        "A package with native code was installed, but the app wasn't rebuilt (reloading only updates JavaScript)",
+        "iOS: pod install wasn't run after installing it",
+        "The package doesn't support the New Architecture (\"Unimplemented component\")"
+      ],
+      "fixes": ["iOS: `{podInstall}`", "Rebuild the app: `{runAndroid}` or `{runIos}`"],
+      "probe": "nativeModule",
+      "learn": "reload-vs-rebuild"
+    },
+    {
+      "id": "native-module-null",
+      "area": "Native modules",
+      "patterns": [
+        "null is not an object \\(evaluating '[\\w$.]*?NativeModules\\.(?<module>\\w+)",
+        "The package '(?<module>[^']+)' doesn't seem to be linked",
+        "NativeModule: (?<module>\\w+) is null",
+        "Native module cannot be null"
+      ],
+      "defaults": { "module": "a package" },
+      "title": "The native code for {module} isn't in the app you're running.",
+      "causes": [
+        "A package with native code was installed, but the app wasn't rebuilt (reloading only updates JavaScript)",
+        "iOS: pod install wasn't run after installing it",
+        "In Expo Go: the package needs native code that Expo Go doesn't have"
+      ],
+      "fixes": ["iOS: `{podInstall}`", "Rebuild the app: `{runAndroid}` or `{runIos}`"],
+      "probe": "nativeModule",
+      "learn": "reload-vs-rebuild"
+    },
+    {
+      "id": "expo-go-native-module",
+      "area": "Expo",
+      "patterns": [
+        "Cannot find native module '(?<module>[^']+)'",
+        "tried to access a native module that doesn't exist",
+        "not (?:available|supported) in Expo Go",
+        "removed from Expo Go"
+      ],
+      "defaults": { "module": "this package" },
+      "title": "The native code for {module} isn't in the app you're running (Expo Go, or an old development build).",
+      "causes": [
+        "Expo Go only has the native code of the Expo SDK. Packages with other native code need a development build",
+        "You added a package with native code after making your development build"
+      ],
+      "fixes": [
+        "Make a development build: `npx expo install expo-dev-client`, then `npx expo run:android` or `npx expo run:ios` (or in the cloud: `eas build --profile development`)",
+        "Then open the project in it, not in Expo Go: `npx expo start` (press s to switch)"
+      ],
+      "probe": "expoGo",
+      "learn": "expo-go",
+      "docs": "https://docs.expo.dev/develop/development-builds/introduction/"
+    },
+    {
+      "id": "expo-go-sdk-mismatch",
+      "area": "Expo",
+      "patterns": ["Project is incompatible with this version of Expo Go", "requires a newer version of Expo Go"],
+      "title": "The Expo Go app and this project use different Expo SDK versions.",
+      "causes": ["Expo Go from the app stores only runs the latest SDK", "This project uses an older (or newer) SDK"],
+      "fixes": [
+        "Upgrade the project to the latest SDK: `npx expo install expo@latest --fix`",
+        "Or use a development build, which works with any SDK: `npx expo run:android` or `npx expo run:ios`",
+        "On an emulator or simulator, `npx expo start` can install the matching Expo Go for you (press a or i)"
+      ],
+      "probe": "expoSdk",
+      "learn": "expo-go",
+      "docs": "https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/"
+    },
+    {
+      "id": "expo-dependency-versions",
+      "area": "Expo",
+      "kind": "warning",
+      "patterns": [
+        "The following packages should be updated for best compatibility with the installed expo version",
+        "Some dependencies are incompatible with the installed expo version"
+      ],
+      "title": "Some packages don't match the versions your Expo SDK expects.",
+      "causes": [
+        "Packages were installed with npm install, which takes the latest version, instead of npx expo install, which picks the one for your SDK",
+        "Expo was upgraded, but the other packages weren't"
+      ],
+      "fixes": ["See which ones: `npx expo install --check`", "Fix them: `npx expo install --fix`"],
+      "then": "Restart with a clean cache: `npx expo start --clear`",
+      "probe": "expoSdk",
+      "docs": "https://docs.expo.dev/more/expo-cli/#install"
+    },
+    {
+      "id": "expo-no-development-build",
+      "area": "Expo",
+      "patterns": ["No development build \\((?<appId>[^)]+)\\) for this project is installed"],
+      "title": "There's no development build of this app ({appId}) on the device.",
+      "causes": [
+        "The project has expo-dev-client, so `npx expo start` opens a development build, and none is installed yet",
+        "It was uninstalled, or you're using another emulator or simulator"
+      ],
+      "fixes": [
+        "Build and install it: `npx expo run:android` or `npx expo run:ios` (or `eas build --profile development`)",
+        "Or open the project in Expo Go instead: `npx expo start`, then press s"
+      ],
+      "learn": "expo-go",
+      "docs": "https://docs.expo.dev/develop/development-builds/create-a-build/"
+    },
+    {
+      "id": "sdk-location-not-found",
+      "area": "Android",
+      "patterns": ["SDK location not found"],
+      "title": "Gradle can't find the Android SDK.",
+      "causes": ["ANDROID_HOME isn't set where the build runs", "android/local.properties doesn't exist or has no sdk.dir line"],
+      "fixes": [
+        "Set ANDROID_HOME in your shell profile (~/.zshrc): `export ANDROID_HOME=$HOME/Library/Android/sdk` (Linux: $HOME/Android/Sdk), then open a new terminal",
+        "Or create android/local.properties with the line `sdk.dir=/Users/<you>/Library/Android/sdk`"
+      ],
+      "probe": "androidSdk",
+      "learn": "gradle",
+      "docs": "https://reactnative.dev/docs/set-up-your-environment"
+    },
+    {
+      "id": "java-home-invalid",
+      "area": "Android",
+      "patterns": ["JAVA_HOME is set to an invalid directory", "JAVA_HOME is not set and no 'java' command could be found"],
+      "title": "Gradle can't find Java: JAVA_HOME is wrong or not set.",
+      "causes": ["JAVA_HOME points to a folder that doesn't exist (a JDK that was removed or updated)", "No JDK is installed"],
+      "fixes": [
+        "Install JDK 17, the version React Native recommends: `brew install --cask zulu@17`",
+        "Point JAVA_HOME at it in ~/.zshrc: `export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home`, then open a new terminal"
+      ],
+      "probe": "java",
+      "learn": "gradle",
+      "docs": "https://reactnative.dev/docs/set-up-your-environment"
+    },
+    {
+      "id": "unsupported-class-file-version",
+      "area": "Android",
+      "patterns": ["Unsupported class file major version (?<major>\\d+)"],
+      "title": "Gradle ran with a JDK that's too new for it (class file major version {major}).",
+      "causes": ["Gradle uses JAVA_HOME (or java on your PATH), and that JDK is newer than this Gradle version supports", "React Native's Android build expects JDK 17"],
+      "fixes": [
+        "Install JDK 17 and point JAVA_HOME at it: `export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home`",
+        "Stop Gradle daemons that still use the old JDK: `cd android && ./gradlew --stop`"
+      ],
+      "then": "Build again: `{runAndroid}`",
+      "probe": "java",
+      "learn": "gradle",
+      "clean": "android",
+      "docs": "https://reactnative.dev/docs/set-up-your-environment"
+    },
+    {
+      "id": "java-version-mismatch",
+      "area": "Android",
+      "patterns": [
+        "Android Gradle plugin requires Java (?<wanted>\\d+) to run\\. You are currently using Java (?<current>\\d+(?:\\.\\d+)*)",
+        "Gradle requires JVM (?<wanted>\\d+) or later to run\\. Your build is currently configured to use JVM (?<current>\\d+(?:\\.\\d+)*)",
+        "Your build is currently configured to use incompatible Java (?<current>\\d+(?:\\.\\d+)*) and Gradle"
+      ],
+      "defaults": { "wanted": "17" },
+      "title": "The Android build needs Java {wanted}, but it runs with Java {current}.",
+      "causes": ["JAVA_HOME (or java on your PATH) points to another JDK", "Android Studio uses its own Gradle JDK setting"],
+      "fixes": [
+        "Install JDK 17 and point JAVA_HOME at it: `export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home`",
+        "Android Studio: Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK",
+        "Stop old Gradle daemons: `cd android && ./gradlew --stop`"
+      ],
+      "probe": "java",
+      "learn": "gradle",
+      "docs": "https://reactnative.dev/docs/set-up-your-environment"
+    },
+    {
+      "id": "install-failed-insufficient-storage",
+      "area": "Android",
+      "patterns": ["INSTALL_FAILED_INSUFFICIENT_STORAGE"],
+      "title": "The device or emulator is out of storage, so the app can't be installed.",
+      "causes": ["Emulators start with little internal storage, and every build adds up"],
+      "fixes": [
+        "Emulator: Android Studio → Device Manager → ⋮ → Wipe Data, or edit the device and give it more internal storage",
+        "Phone: free up space, or remove the old build: `adb uninstall {appId}`"
+      ],
+      "then": "`{runAndroid}`"
+    },
+    {
+      "id": "install-failed-update-incompatible",
+      "area": "Android",
+      "patterns": ["INSTALL_FAILED_UPDATE_INCOMPATIBLE(?:: Existing package (?<appId>[\\w.]+) signatures do not match)?"],
+      "title": "An app with the same ID ({appId}) but signed with another key is already installed.",
+      "causes": ["A release build, or a build from another computer, is installed, and debug builds are signed with a different key"],
+      "fixes": ["Uninstall the old app (this deletes its data): `adb uninstall {appId}`"],
+      "then": "`{runAndroid}`",
+      "learn": "debug-vs-release"
+    },
+    {
+      "id": "duplicate-class",
+      "area": "Android",
+      "patterns": ["Duplicate class (?<class>\\S+) found in modules?"],
+      "title": "Two libraries both contain the class {class}.",
+      "causes": [
+        "Two packages bring different versions of the same Android library",
+        "An old package still uses the Android Support Library while the app uses AndroidX",
+        "Kotlin standard library versions clash (kotlin-stdlib and kotlin-stdlib-jdk8)"
+      ],
+      "fixes": [
+        "See which packages bring it: `cd android && ./gradlew app:dependencies --configuration debugRuntimeClasspath`",
+        "Update the package that brings the old version (`npm outdated`), or replace it if it's unmaintained",
+        "Then clean: `cd android && ./gradlew clean`"
+      ],
+      "learn": "gradle",
+      "clean": "android"
+    },
+    {
+      "id": "duplicate-native-library",
+      "area": "Android",
+      "patterns": ["\\d+ files found with path 'lib/[^/']+/(?<lib>[^']+)'", "Execution failed for task ':app:merge\\w*NativeLibs'"],
+      "defaults": { "lib": "<library>.so" },
+      "title": "Two packages contain the same native file ({lib}), and Gradle doesn't know which one to keep.",
+      "causes": ["Two packages ship their own copy of the same .so file (often libc++_shared.so or libfbjni.so)", "An old package ships native files of an older React Native"],
+      "fixes": [
+        "Update the packages named in the lines after this error",
+        "If they are up to date, keep one copy: in android/app/build.gradle, inside android { }, add `packaging { jniLibs { pickFirsts += ['**/{lib}'] } }`",
+        "Then clean: `cd android && ./gradlew clean`"
+      ],
+      "learn": "gradle",
+      "clean": "android"
+    },
+    {
+      "id": "ndk-not-installed",
+      "area": "Android",
+      "patterns": [
+        "\\[CXX1101\\] NDK at \\S*?(?<ndk>\\d+(?:\\.\\d+)*) did not have a source\\.properties file",
+        "No version of NDK matched the requested version (?<ndk>\\d+(?:\\.\\d+)*)",
+        "NDK is not installed",
+        "NDK not configured"
+      ],
+      "defaults": { "ndk": "<ndkVersion>" },
+      "title": "The Android NDK this project needs ({ndk}) isn't installed, or its download is broken.",
+      "causes": [
+        "React Native compiles C++ code with the NDK version set as ndkVersion in android/build.gradle",
+        "An NDK download was interrupted, leaving a folder without source.properties"
+      ],
+      "fixes": [
+        "Android Studio → Settings → Languages & Frameworks → Android SDK → SDK Tools → tick Show Package Details → NDK (Side by side) → {ndk}",
+        "Or in a terminal: `$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \"ndk;{ndk}\"`",
+        "A broken download: delete $ANDROID_HOME/ndk/{ndk} and install it again"
+      ],
+      "probe": "ndk",
+      "learn": "gradle",
+      "clean": "android"
+    },
+    {
+      "id": "no-connected-devices",
+      "area": "Android",
+      "patterns": [
+        "No connected devices",
+        "Make sure you have an Android emulator running or a device connected",
+        "no devices/emulators found"
+      ],
+      "title": "No Android emulator is running and no phone is connected.",
+      "causes": ["The emulator isn't started", "The phone isn't plugged in with USB debugging on, or you didn't accept the \"Allow USB debugging?\" prompt"],
+      "fixes": [
+        "See what adb sees: `adb devices`",
+        "Start an emulator: `rn-buddy device start`, or Android Studio → Device Manager → ▶",
+        "Phone: Settings → Developer options → USB debugging on, plug it in and accept the prompt"
+      ],
+      "then": "`{runAndroid}`",
+      "docs": "https://reactnative.dev/docs/running-on-device"
+    },
+    {
+      "id": "device-unauthorized",
+      "area": "Android",
+      "patterns": ["device unauthorized"],
+      "title": "Your phone is connected, but it hasn't allowed USB debugging from this computer yet.",
+      "causes": ["The \"Allow USB debugging?\" prompt on the phone wasn't accepted"],
+      "fixes": [
+        "Unlock the phone and accept the prompt (tick Always allow)",
+        "No prompt? Developer options → Revoke USB debugging authorizations, then unplug and plug in again",
+        "Check: `adb devices` should say device, not unauthorized"
+      ],
+      "docs": "https://reactnative.dev/docs/running-on-device"
+    },
+    {
+      "id": "android-tools-not-found",
+      "area": "Android",
+      "flags": "im",
+      "patterns": [
+        "command not found: (?<tool>adb|emulator)\\b",
+        "(?:^|\\s)(?<tool>adb|emulator): command not found",
+        "'(?<tool>adb|emulator)' is not recognized as an internal or external command",
+        "spawn (?<tool>adb|emulator) ENOENT"
+      ],
+      "defaults": { "tool": "adb" },
+      "title": "Your terminal can't find the Android tool {tool}.",
+      "causes": ["The Android SDK's platform-tools and emulator folders aren't on your PATH", "ANDROID_HOME isn't set"],
+      "fixes": [
+        "Add to ~/.zshrc: `export ANDROID_HOME=$HOME/Library/Android/sdk` and `export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools`",
+        "Then open a new terminal and check: `adb --version`"
+      ],
+      "probe": "androidTools",
+      "docs": "https://reactnative.dev/docs/set-up-your-environment"
+    },
+    {
+      "id": "android-sdk-licenses",
+      "area": "Android",
+      "patterns": ["some licen[cs]es have not been accepted", "You have not accepted the license agreements of the following SDK components"],
+      "title": "The Android SDK licenses aren't accepted, so Gradle can't download what the build needs.",
+      "causes": ["A new SDK component is needed, and its license was never accepted on this computer"],
+      "fixes": [
+        "Accept them: `yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses`",
+        "No cmdline-tools folder? Android Studio → SDK Manager → SDK Tools → Android SDK Command-line Tools"
+      ],
+      "learn": "gradle"
+    },
+    {
+      "id": "gradle-out-of-memory",
+      "area": "Android",
+      "patterns": ["OutOfMemoryError: (?:Java heap space|Metaspace)", "Expiring Daemon because JVM heap space is exhausted", "Gradle build daemon disappeared unexpectedly"],
+      "title": "Gradle ran out of memory.",
+      "causes": ["The Gradle daemon has less memory than the build needs", "Android Studio, an emulator and Gradle together use a lot of RAM"],
+      "fixes": [
+        "In android/gradle.properties, set `org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m`",
+        "Stop old daemons: `cd android && ./gradlew --stop`",
+        "Close apps you don't need while building"
+      ],
+      "learn": "gradle"
+    },
+    {
+      "id": "kotlin-version-incompatible",
+      "area": "Android",
+      "patterns": ["Module was compiled with an incompatible version of Kotlin\\. The binary version of its metadata is (?<found>\\d+(?:\\.\\d+)*), expected version is (?<expected>\\d+(?:\\.\\d+)*)"],
+      "title": "A library was built with Kotlin {found}, but your build uses Kotlin {expected}.",
+      "causes": ["The library version is newer than your React Native version supports"],
+      "fixes": [
+        "Install a version of the library that matches your React Native version (see its README or changelog)",
+        "Or upgrade React Native, which brings a newer Kotlin: `rn-buddy upgrade`",
+        "Then clean: `cd android && ./gradlew clean`"
+      ],
+      "learn": "gradle",
+      "clean": "android"
+    },
+    {
+      "id": "min-sdk-too-low",
+      "area": "Android",
+      "patterns": ["uses-sdk:minSdkVersion (?<current>\\d+) cannot be smaller than version (?<wanted>\\d+) declared in library (?<lib>\\S+)"],
+      "title": "A library needs minSdkVersion {wanted}, but your app is set to {current}.",
+      "causes": ["The library dropped support for older Android versions"],
+      "fixes": [
+        "Raise minSdkVersion to {wanted} in android/build.gradle (buildscript → ext)",
+        "Or use an older version of the library that still supports {current}"
+      ],
+      "then": "`cd android && ./gradlew clean`, then `{runAndroid}`",
+      "learn": "gradle",
+      "expo": {
+        "fixes": [
+          "Raise it with expo-build-properties: `npx expo install expo-build-properties`, then in app.json plugins: `[\"expo-build-properties\", { \"android\": { \"minSdkVersion\": {wanted} } }]`",
+          "Or use an older version of the library that still supports {current}"
+        ],
+        "then": "Make a new build: `npx expo prebuild --clean`, then `npx expo run:android`"
+      }
+    },
+    {
+      "id": "compile-sdk-too-low",
+      "area": "Android",
+      "patterns": ["to compile against version (?<wanted>\\d+) or later of the\\s+Android APIs"],
+      "title": "A library needs compileSdkVersion {wanted} or newer.",
+      "causes": ["The library was made for a newer React Native, which compiles against a newer Android SDK"],
+      "fixes": [
+        "Raise compileSdkVersion to {wanted} in android/build.gradle (buildscript → ext) and install Android SDK Platform {wanted} in Android Studio → SDK Manager",
+        "Or use an older version of the library, or upgrade React Native: `rn-buddy upgrade`"
+      ],
+      "then": "`cd android && ./gradlew clean`, then `{runAndroid}`",
+      "learn": "gradle",
+      "expo": {
+        "fixes": [
+          "Raise it with expo-build-properties: `npx expo install expo-build-properties`, then in app.json plugins: `[\"expo-build-properties\", { \"android\": { \"compileSdkVersion\": {wanted} } }]`",
+          "Or use the library version that `npx expo install` picks for your SDK"
+        ],
+        "then": "Make a new build: `npx expo prebuild --clean`, then `npx expo run:android`"
+      }
+    },
+    {
+      "id": "gradle-dependency-not-found",
+      "area": "Android",
+      "patterns": [
+        "Could not find (?<dep>[\\w.-]+:[\\w.-]+:[\\w.+-]+?)\\.?\\s",
+        "Could not resolve all (?:files|dependencies|artifacts) for configuration"
+      ],
+      "defaults": { "dep": "an Android library" },
+      "title": "Gradle couldn't download {dep}.",
+      "causes": [
+        "No internet, a proxy or VPN in the way, or the Maven repository was down",
+        "An old package asks for a version that doesn't exist anymore (jcenter() shut down)",
+        "Gradle is in offline mode"
+      ],
+      "fixes": [
+        "Check your connection, then retry with fresh downloads: `cd android && ./gradlew app:assembleDebug --refresh-dependencies`",
+        "If an old package asks for it, update that package"
+      ],
+      "learn": "gradle"
+    },
+    {
+      "id": "gradle-build-failed",
+      "area": "Android",
+      "kind": "wrapper",
+      "patterns": [
+        "Execution failed for task '(?<task>[^']+)'",
+        "FAILURE: Build failed with an exception",
+        "BUILD FAILED in",
+        "Failed to install the app\\. Command failed with exit code \\d+: \\S*gradlew"
+      ],
+      "title": "The Android build failed. This line only says that it failed: the cause is printed above it.",
+      "causes": ["The real error is in the \"What went wrong:\" block, or in the first lines that start with \"e:\" or \"error:\""],
+      "fixes": [
+        "Build again with details: `cd android && ./gradlew app:assembleDebug --stacktrace`",
+        "Pipe the whole log into rn-buddy: `{runAndroid} 2>&1 | rn-buddy why`"
+      ],
+      "learn": "gradle",
+      "clean": "android"
+    },
+    {
+      "id": "cocoapods-incompatible-versions",
+      "area": "iOS",
+      "patterns": ["CocoaPods could not find compatible versions for pod \"(?<pod>[^\"]+)\""],
+      "title": "CocoaPods can't find a version of {pod} that fits every requirement.",
+      "causes": [
+        "ios/Podfile.lock pins an older {pod}, and a package you updated needs a newer one",
+        "The list of pods on your computer (the spec repo) is out of date",
+        "A pod needs a newer iOS version than the platform :ios line in the Podfile"
+      ],
+      "fixes": [
+        "Update the list of pods: `(cd ios && {podExec} install --repo-update)`",
+        "Or let CocoaPods update only that pod: `(cd ios && {podExec} update {pod})`"
+      ],
+      "probe": "pods",
+      "learn": "pods",
+      "clean": "pods"
+    },
+    {
+      "id": "pod-deployment-target",
+      "area": "iOS",
+      "patterns": ["required a higher minimum deployment target"],
+      "title": "A pod needs a newer iOS version than this app's minimum.",
+      "causes": ["The package (or its version) needs a newer iOS than the platform :ios line in ios/Podfile"],
+      "fixes": [
+        "Use a version of the package that matches your React Native version",
+        "Or raise the minimum in ios/Podfile, e.g. `platform :ios, '16.0'` instead of `platform :ios, min_ios_version_supported`, only if the package's docs ask for it"
+      ],
+      "then": "`(cd ios && {podExec} install --repo-update)`",
+      "learn": "pods",
+      "expo": {
+        "fixes": [
+          "Raise it with expo-build-properties: `npx expo install expo-build-properties`, then in app.json plugins: `[\"expo-build-properties\", { \"ios\": { \"deploymentTarget\": \"16.0\" } }]`",
+          "Or use the version that `npx expo install` picks for your SDK"
+        ],
+        "then": "Make a new build: `npx expo prebuild --clean`, then `npx expo run:ios`"
+      }
+    },
+    {
+      "id": "pods-not-in-sync",
+      "area": "iOS",
+      "patterns": ["The sandbox is not in sync with the Podfile\\.lock"],
+      "title": "The installed pods (ios/Pods) don't match ios/Podfile.lock.",
+      "causes": ["You pulled changes or installed packages but didn't run pod install"],
+      "fixes": ["`{podInstall}`", "Then build again, from ios/<App>.xcworkspace (not .xcodeproj)"],
+      "probe": "pods",
+      "learn": "pods",
+      "clean": "pods"
+    },
+    {
+      "id": "bundler-version-missing",
+      "area": "iOS",
+      "patterns": ["Could not find 'bundler' \\((?<version>\\d+(?:\\.\\d+)*)\\) required by"],
+      "title": "The Bundler version that Gemfile.lock asks for ({version}) isn't installed.",
+      "causes": ["Gemfile.lock was made with another Bundler version than the one on this computer"],
+      "fixes": ["Install it: `gem install bundler:{version}`", "Then install the gems: `bundle install`"],
+      "then": "`{podInstall}`",
+      "learn": "pods"
+    },
+    {
+      "id": "gems-not-installed",
+      "area": "iOS",
+      "patterns": [
+        "Could not find gem '(?<gem>[^']+)' in locally installed gems",
+        "Could not find (?<gem>[\\w-]+-\\d[\\w.]*) in locally installed gems",
+        "bundler: command not found: pod"
+      ],
+      "defaults": { "gem": "cocoapods" },
+      "title": "The Ruby gems this project needs ({gem}) aren't installed.",
+      "causes": ["`bundle install` wasn't run after cloning the project, or after the Gemfile changed"],
+      "fixes": ["In the project folder: `bundle install`"],
+      "then": "`{podInstall}`",
+      "learn": "pods"
+    },
+    {
+      "id": "rsync-sandbox-deny",
+      "area": "iOS",
+      "patterns": ["Sandbox: rsync(?:\\.samba)?\\(\\d+\\) deny\\(1\\) file-"],
+      "title": "Xcode's script sandbox stopped a build script from copying files.",
+      "causes": ["Xcode turns on User Script Sandboxing (ENABLE_USER_SCRIPT_SANDBOXING), and a build phase script copies files"],
+      "fixes": [
+        "In Xcode: select the app target → Build Settings → search \"User Script Sandboxing\" → set it to No",
+        "Then Product → Clean Build Folder (⇧⌘K) and build again"
+      ],
+      "clean": "ios"
+    },
+    {
+      "id": "node-not-found-xcode",
+      "area": "iOS",
+      "patterns": [
+        "Can't find the '[^']*' binary to build the React Native bundle",
+        "line \\d+: node: command not found",
+        "env: node: No such file or directory"
+      ],
+      "title": "Xcode can't find Node, so it can't bundle your JavaScript.",
+      "causes": ["Xcode doesn't load your shell profile, so a Node installed with nvm, fnm, asdf or volta isn't on its PATH"],
+      "fixes": ["Tell Xcode where Node is: `echo export NODE_BINARY=$(command -v node) > ios/.xcode.env.local`"],
+      "then": "Build again: `{runIos}`",
+      "docs": "https://reactnative.dev/docs/environment-setup"
+    },
+    {
+      "id": "xcode-build-failed",
+      "area": "iOS",
+      "kind": "wrapper",
+      "patterns": [
+        "Command PhaseScriptExecution failed with a nonzero exit code",
+        "\\*\\* BUILD FAILED \\*\\*",
+        "\"xcodebuild\" exited with error code",
+        "Failed to build ios project",
+        "The following build commands failed:"
+      ],
+      "title": "The iOS build failed. This line only says that it failed: the cause is printed above it.",
+      "causes": [
+        "A build step failed: often \"Bundle React Native code and images\" (a JavaScript error, or Xcode can't find Node) or a \"[CP]\" step (pods out of date)"
+      ],
+      "fixes": [
+        "Look above for the first line with \"error:\"",
+        "Or build in Xcode to see the failing step: `xed ios`, ⌘B, then the Report navigator (⌘9)",
+        "Pipe the whole log into rn-buddy: `{runIos} 2>&1 | rn-buddy why`"
+      ],
+      "clean": "ios"
+    },
+    {
+      "id": "multiple-commands-produce",
+      "area": "iOS",
+      "patterns": ["Multiple commands produce '(?<file>[^']+)'"],
+      "title": "Two build steps write the same file: {file}.",
+      "causes": [
+        "A font or resource is in Copy Bundle Resources and is also copied by a pod (react-native-vector-icons fonts are the classic case)",
+        "A file was added to the target twice"
+      ],
+      "fixes": [
+        "In Xcode: app target → Build Phases → Copy Bundle Resources: remove the duplicate",
+        "Then Product → Clean Build Folder (⇧⌘K)"
+      ],
+      "clean": "ios"
+    },
+    {
+      "id": "no-such-module",
+      "area": "iOS",
+      "patterns": ["No such module '(?<module>[^']+)'"],
+      "title": "Xcode can't find the module {module}.",
+      "causes": [
+        "The .xcodeproj was opened instead of the .xcworkspace, so Xcode doesn't see the pods",
+        "pod install wasn't run after installing a package",
+        "Old build data"
+      ],
+      "fixes": ["`{podInstall}`", "Open the workspace, not the project: `xed ios`", "Product → Clean Build Folder (⇧⌘K)"],
+      "probe": "pods",
+      "learn": "pods",
+      "clean": "ios"
+    },
+    {
+      "id": "undefined-symbols",
+      "area": "iOS",
+      "patterns": ["Undefined symbols? for architecture (?<arch>\\w+)", "linker command failed with exit code 1"],
+      "title": "The linker couldn't find code the app uses.",
+      "causes": [
+        "Pods are missing or out of date",
+        "The .xcodeproj was built instead of the .xcworkspace",
+        "A package doesn't support your React Native version or the New Architecture"
+      ],
+      "fixes": ["`{podInstall}`", "Build the workspace: `xed ios`", "Product → Clean Build Folder (⇧⌘K)"],
+      "probe": "pods",
+      "learn": "pods",
+      "clean": "pods"
+    },
+    {
+      "id": "build-database-locked",
+      "area": "iOS",
+      "patterns": ["accessing build database .*database is locked"],
+      "title": "Another Xcode build of this app is still running.",
+      "causes": ["Xcode and a terminal (or two terminals) are building at the same time"],
+      "fixes": ["Wait for the other build or stop it (■ in Xcode, Ctrl+C in the terminal)", "Still locked? Quit Xcode and build again"]
+    },
+    {
+      "id": "simulator-boot-failed",
+      "area": "iOS",
+      "patterns": ["Unable to boot (?:the )?Simulator", "Unable to lookup in current state: Shutdown"],
+      "title": "The iOS Simulator couldn't start.",
+      "causes": ["The simulator is stuck from an earlier run", "The iOS runtime for that simulator isn't installed", "The disk is almost full"],
+      "fixes": [
+        "Shut down all simulators and try again: `xcrun simctl shutdown all`",
+        "Install the runtime: Xcode → Settings → Components",
+        "Still stuck? Erase it, which deletes its apps and data: `xcrun simctl erase <device id>`"
+      ],
+      "clean": "ios"
+    },
+    {
+      "id": "simulator-not-found",
+      "area": "iOS",
+      "patterns": ["Could not find \"(?<name>[^\"]+)\" simulator", "No simulator available with name \"(?<name>[^\"]+)\""],
+      "title": "There's no simulator named \"{name}\".",
+      "causes": ["That device isn't installed in this Xcode version"],
+      "fixes": [
+        "List your simulators: `xcrun simctl list devices available`",
+        "Run on one of them: `npx react-native run-ios --simulator \"iPhone 16\"`",
+        "Or add one in Xcode → Window → Devices and Simulators"
+      ],
+      "expo": {
+        "fixes": ["List your simulators: `xcrun simctl list devices available`", "Pick one when building: `npx expo run:ios --device`"]
+      }
+    },
+    {
+      "id": "signing-requires-team",
+      "area": "iOS",
+      "patterns": ["Signing for \"(?<target>[^\"]+)\" requires a development team"],
+      "title": "Xcode needs a signing team to build {target} for a real iPhone.",
+      "causes": ["No Team is chosen for the target. A free Personal Team (your Apple ID) is enough for your own phone"],
+      "fixes": [
+        "`xed ios` → select the {target} target → Signing & Capabilities → Team → pick your Apple ID (Add an Account... if it isn't there)",
+        "Only testing? The Simulator needs no signing: `{runIos}`"
+      ],
+      "learn": "debug-vs-release",
+      "docs": "https://reactnative.dev/docs/running-on-device"
+    },
+    {
+      "id": "no-provisioning-profiles",
+      "area": "iOS",
+      "patterns": ["No profiles for '(?<bundleId>[^']+)' were found"],
+      "title": "Xcode has no provisioning profile for the bundle ID {bundleId}.",
+      "causes": ["Automatic signing is off, or no Team is chosen", "With a free Personal Team the bundle ID must be unique, and someone else already uses it"],
+      "fixes": [
+        "Signing & Capabilities → tick Automatically manage signing and choose your Team",
+        "Change the bundle ID to one only you use, e.g. com.yourname.myapp: `rn-buddy app id com.yourname.myapp`"
+      ],
+      "learn": "debug-vs-release"
+    },
+    {
+      "id": "xcode-select-command-line-tools",
+      "area": "iOS",
+      "patterns": [
+        "requires Xcode, but active developer directory '[^']+' is a command line tools instance",
+        "SDK \"iphoneos\" cannot be located",
+        "unable to find utility \"(?:simctl|xcodebuild)\", not a developer tool or in PATH"
+      ],
+      "title": "Your terminal uses the Command Line Tools instead of the full Xcode.",
+      "causes": ["xcode-select points to /Library/Developer/CommandLineTools, which can't build iOS apps"],
+      "fixes": [
+        "Point it to Xcode: `sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`",
+        "Accept the license and finish the setup: `sudo xcodebuild -runFirstLaunch`"
+      ],
+      "docs": "https://reactnative.dev/docs/set-up-your-environment"
+    },
+    {
+      "id": "ios-platform-not-installed",
+      "area": "iOS",
+      "patterns": ["(?<platform>iOS \\d+(?:\\.\\d+)*) is not installed\\. To use with Xcode, first download and install the platform", "iOS [\\d.]+ Platform Not Installed"],
+      "defaults": { "platform": "iOS" },
+      "title": "The {platform} platform isn't installed in Xcode.",
+      "causes": ["Xcode downloads iOS platforms separately, and this one isn't there yet"],
+      "fixes": ["Xcode → Settings → Components → install the iOS platform", "Or in a terminal: `xcodebuild -downloadPlatform iOS`"]
+    },
+    {
+      "id": "text-outside-text",
+      "area": "React",
+      "patterns": ["Text strings must be rendered within a <Text> component"],
+      "title": "Some text is placed directly inside a <View> (or another component that isn't <Text>).",
+      "causes": [
+        "A string or number in JSX outside <Text>",
+        "`count && <Item />` where count is 0 or \"\": React renders the 0 or \"\" as text",
+        "A stray character in JSX, like a ; or a space after a closing tag"
+      ],
+      "fixes": ["Wrap the text: `<Text>Hello</Text>`", "Use a real true/false in conditions: `count > 0 && <Item />`, or `name ? <Item /> : null`"],
+      "docs": "https://reactnative.dev/docs/text"
+    },
+    {
+      "id": "nested-virtualized-lists",
+      "area": "React",
+      "kind": "warning",
+      "patterns": ["VirtualizedLists should never be nested inside plain ScrollViews with the same orientation"],
+      "title": "A FlatList (or SectionList) is inside a ScrollView that scrolls the same way.",
+      "causes": ["The outer ScrollView makes the list render every item at once, so it loses its speed"],
+      "fixes": [
+        "Remove the ScrollView and move the other content into the list's ListHeaderComponent and ListFooterComponent",
+        "For a short list, render the items with .map() instead of a FlatList"
+      ],
+      "docs": "https://reactnative.dev/docs/flatlist"
+    },
+    {
+      "id": "missing-key-prop",
+      "area": "React",
+      "kind": "warning",
+      "patterns": ["Each child in a list should have a unique \"key\" prop"],
+      "title": "Items rendered from an array need a unique key.",
+      "causes": ["An element returned from .map() has no key, or two items have the same key"],
+      "fixes": [
+        "Add a key to the outer element in .map(): `items.map((item) => <Row key={item.id} title={item.title} />)`",
+        "FlatList: `keyExtractor={(item) => item.id}`",
+        "Use a stable id, not the array index, when items can move"
+      ],
+      "docs": "https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key"
+    },
+    {
+      "id": "hooks-order-changed",
+      "area": "React",
+      "patterns": ["Rendered (?:more|fewer) hooks than (?:during the previous render|expected)"],
+      "title": "A component called a different number of hooks than in its last render.",
+      "causes": ["A hook is inside an if, a loop, or after an early return", "A hook is called inside a callback"],
+      "fixes": [
+        "Move every hook (useState, useEffect, your useSomething) to the top of the component, before any return",
+        "Put the condition inside the hook instead: `useEffect(() => { if (ready) load(); }, [ready])`"
+      ],
+      "docs": "https://react.dev/reference/rules/rules-of-hooks"
+    },
+    {
+      "id": "invalid-hook-call",
+      "area": "React",
+      "patterns": ["Invalid hook call\\. Hooks can only be called inside (?:of )?the body of a function component"],
+      "title": "A hook was called somewhere React doesn't allow it.",
+      "causes": [
+        "The hook is called in a regular function, a class component or an event handler",
+        "Two copies of React are installed",
+        "react doesn't match the version react-native needs"
+      ],
+      "fixes": [
+        "Call hooks only at the top of function components and of custom hooks named useSomething",
+        "Check for duplicate React: `npm ls react`"
+      ],
+      "probe": "duplicateReact",
+      "docs": "https://react.dev/warnings/invalid-hook-call-warning"
+    },
+    {
+      "id": "too-many-rerenders",
+      "area": "React",
+      "patterns": ["Too many re-renders\\. React limits the number of renders to prevent an infinite loop"],
+      "title": "A component sets state while it renders, which renders it again, forever.",
+      "causes": ["`onPress={setOpen(true)}` calls the function while rendering instead of passing it", "setState is called directly in the component body"],
+      "fixes": ["Pass a function: `onPress={() => setOpen(true)}`", "Move state updates into an event handler or a useEffect"],
+      "docs": "https://react.dev/learn/state-a-components-memory"
+    },
+    {
+      "id": "maximum-update-depth",
+      "area": "React",
+      "patterns": ["Maximum update depth exceeded"],
+      "title": "State updates keep triggering each other in a loop.",
+      "causes": [
+        "A useEffect sets state that's in its own dependency list",
+        "An object, array or function made during render is used as a useEffect dependency, so it's new every time"
+      ],
+      "fixes": [
+        "Check each useEffect that calls a setter: does it change one of its own dependencies?",
+        "Wrap objects and functions used as dependencies in useMemo or useCallback, or only set state when the value changed"
+      ],
+      "docs": "https://react.dev/learn/you-might-not-need-an-effect"
+    },
+    {
+      "id": "update-while-rendering",
+      "area": "React",
+      "kind": "warning",
+      "patterns": ["Cannot update a component \\(`(?<other>[^`]+)`\\) while rendering a different component \\(`(?<current>[^`]+)`\\)"],
+      "title": "{current} changes the state of {other} while it renders.",
+      "causes": ["A setter from a parent (or a store update) is called in {current}'s body instead of in an effect or event"],
+      "fixes": ["Move the update into a useEffect, or into the event handler that causes it"],
+      "docs": "https://react.dev/link/setstate-in-render"
+    },
+    {
+      "id": "element-type-invalid",
+      "area": "React",
+      "patterns": ["Element type is invalid: expected a string \\(for built-in components\\) or a class/function \\(for composite components\\) but got: (?<got>\\w+)"],
+      "title": "You're rendering a component that is {got}, usually because of a wrong import.",
+      "causes": [
+        "Default and named imports are mixed up: `import Button from './Button'` vs `import { Button } from './Button'`",
+        "The component isn't exported from its file",
+        "A typo in the imported name"
+      ],
+      "fixes": [
+        "The error says \"Check the render method of X\": look at the imports in X",
+        "Match the import to the export: `export default Button` ↔ `import Button`, `export function Button` ↔ `import { Button }`"
+      ]
+    },
+    {
+      "id": "object-as-react-child",
+      "area": "React",
+      "patterns": ["Objects are not valid as a React child"],
+      "title": "You're rendering an object (or a Promise) directly in JSX.",
+      "causes": ["A whole object is put in JSX instead of one of its fields", "An async function's result (a Promise) is rendered"],
+      "fixes": [
+        "Render one field: `<Text>{user.name}</Text>`, not the whole user object",
+        "To look at it: `<Text>{JSON.stringify(value)}</Text>`",
+        "Load async data in a useEffect and keep the result in state"
+      ]
+    },
+    {
+      "id": "navigation-action-not-handled",
+      "area": "React",
+      "patterns": ["The action '(?<action>\\w+)' with payload .*? was not handled by any navigator"],
+      "title": "React Navigation couldn't {action}: no navigator around this screen has that screen name.",
+      "causes": [
+        "The screen name is misspelled, or not registered with <Stack.Screen name=\"...\">",
+        "The screen is in a nested navigator: navigate through its parent, e.g. `navigation.navigate('Root', { screen: 'Details' })`",
+        "The screen is only rendered in some cases (e.g. after login)"
+      ],
+      "fixes": ["Compare the name you navigate to with the name in <Stack.Screen>", "For nested navigators, navigate to the parent with { screen: '...' }"],
+      "docs": "https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator"
+    },
+    {
+      "id": "navigation-object-missing",
+      "area": "React",
+      "patterns": ["Couldn't find a navigation object\\. Is your component inside"],
+      "title": "useNavigation() was called outside the navigation tree.",
+      "causes": ["The component isn't rendered inside <NavigationContainer> (for example in App.tsx, above it)"],
+      "fixes": [
+        "Use useNavigation only in components rendered by a screen, inside <NavigationContainer>",
+        "Need to navigate from outside? Use a navigation ref: createNavigationContainerRef"
+      ],
+      "docs": "https://reactnavigation.org/docs/navigating-without-navigation-prop"
+    }
+  ]
+}

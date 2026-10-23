@@ -1,7 +1,7 @@
 {
   "name": "rn-buddy",
-  "version": "0.2.0",
-  "description": "A CLI for React Native learners: explains your project in plain English, checks your setup and organizes your code.",
+  "version": "0.3.0",
+  "description": "A CLI for React Native learners: explains your project and its errors in plain English, checks your setup, and does the hard native setup for you.",
   "type": "module",
   "bin": {
     "rn-buddy": "./bin/rn-buddy.js"
@@ -21,7 +21,9 @@
     "cli",
     "beginner",
     "learning",
-    "explain"
+    "explain",
+    "doctor",
+    "expo"
   ],
   "license": "MIT",
   "author": "Vit Tola <vittola.work@gmail.com>",
@@ -36,6 +38,7 @@
   "dependencies": {
     "commander": "^15.0.0",
     "picocolors": "^1.1.1",
-    "semver": "^7.8.5"
+    "semver": "^7.8.5",
+    "zustand": "^5.0.16"
   }
 }

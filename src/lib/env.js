@@ -1,8 +1,22 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import semver from 'semver';
-import { LOCKFILES } from './project.js';
+import { podCommand } from './add.js';
+import { gradleProperties } from './native.js';
+import { installedVersion, isExpo, LOCKFILES, packageManager } from './project.js';
+import {
+  checkAndroid,
+  checkIos,
+  checkMachine,
+  propertiesPath,
+  readProperties,
+  runSync,
+  sdkFolder,
+} from './toolchain.js';
+
+export { detectToolchain } from './toolchain.js';
 
 // The JDK the React Native docs recommend for Android builds.
 // https://reactnative.dev/docs/set-up-your-environment
@@ -15,29 +29,40 @@ const POD_INSTALL = '(cd ios && bundle exec pod install)';
 // Versions installed on this machine. Commands run inside the project folder so
 // version managers (rbenv, jenv, ...) pick the version the project asks for.
 // Gradle builds Android with JAVA_HOME when it's set, so that java wins over PATH.
-export function detectTools(root, env = process.env) {
+// `run` is injectable for tests (see runSync in toolchain.js).
+export function detectTools(root, env = process.env, run = runSync) {
   const java = env.JAVA_HOME ? path.join(env.JAVA_HOME, 'bin', 'java') : 'java';
   return {
     node: semver.clean(process.version),
-    java: commandVersion(java, ['-version'], root),
+    java: commandVersion(run, java, ['-version'], root),
     javaHome: env.JAVA_HOME ?? null,
-    ruby: commandVersion('ruby', ['-v'], root),
-    bundler: commandVersion('bundle', ['-v'], root),
-    gemsInstalled: gemsInstalled(root),
+    ruby: commandVersion(run, 'ruby', ['-v'], root),
+    bundler: commandVersion(run, 'bundle', ['-v'], root),
+    gemsInstalled: gemsInstalled(root, run),
   };
 }
 
 // Whether `bundle check` finds every gem in the Gemfile. null when there is no Gemfile or no Bundler.
-function gemsInstalled(root) {
+function gemsInstalled(root, run) {
   if (!existsSync(path.join(root, 'Gemfile'))) return null;
-  const result = spawnSync('bundle', ['check'], { cwd: root });
-  return result.error ? null : result.status === 0;
+  const result = run('bundle', ['check'], { cwd: root });
+  return result ? result.status === 0 : null;
 }
 
 export function checkTools({ root, pkg }, tools, platform = process.platform) {
-  return [checkNode(root, pkg, tools.node), checkJava(root, tools), checkRuby(root, tools.ruby, platform)].filter(
-    Boolean,
-  );
+  // Expo projects only need Ruby once `npx expo prebuild` made an ios/ folder.
+  const ruby = isExpo(pkg) && !existsSync(path.join(root, 'ios')) ? null : checkRuby(root, tools.ruby, platform);
+  return [checkNode(root, pkg, tools.node), checkJava(root, tools), ruby].filter(Boolean);
+}
+
+// Every section `env` prints, as [title, rows]. `tools` is detectTools() merged with detectToolchain().
+export function envSections(project, tools, platform = process.platform) {
+  return [
+    ['Tools', [...checkTools(project, tools, platform), ...checkMachine(project, tools, platform)]],
+    ['Android', checkAndroid(project, tools, platform)],
+    ['iOS', checkIos(project, tools, platform)],
+    ['Lockfiles', checkLockfiles(project, platform, tools)],
+  ].filter(([, rows]) => rows.length > 0);
 }
 
 export function checkLockfiles({ root, pkg }, platform = process.platform, tools = {}) {
@@ -47,7 +72,7 @@ export function checkLockfiles({ root, pkg }, platform = process.platform, tools
     jsLockfile,
     existsSync(path.join(root, 'node_modules'))
       ? { name: 'node_modules', status: 'ok', message: 'installed' }
-      : { name: 'node_modules', status: 'warn', message: 'not installed', hint: `Run ${manager} install` },
+      : { name: 'node_modules', status: 'warn', message: 'not installed', hint: `Run ${manager} install`, fix: 'install' },
   ];
 
   if (existsSync(path.join(root, 'Gemfile'))) {
@@ -59,6 +84,7 @@ export function checkLockfiles({ root, pkg }, platform = process.platform, tools
         status: 'warn',
         message: 'not installed, so pod install will fail',
         hint: 'Run bundle install',
+        fix: 'bundle install',
       });
     }
   }
@@ -177,6 +203,7 @@ function checkJsLockfile(root, pkg) {
       status: 'warn',
       message: 'none found',
       hint: 'Run npm install and commit package-lock.json so everyone installs the same versions',
+      fix: 'install',
     };
   }
   if (managers.length > 1) {
@@ -204,6 +231,7 @@ function checkJsLockfile(root, pkg) {
       status: 'warn',
       message: 'out of date with package.json',
       hint: 'Run npm install, then commit package-lock.json',
+      fix: 'install',
     };
   }
   return { name, status: 'ok', message: name === 'package-lock.json' ? 'npm, matches package.json' : managers[0] };
@@ -227,18 +255,18 @@ function checkPods(root, platform) {
   if (platform !== 'darwin') return { name, status: 'skip', message: 'only needed to build the iOS app (macOS)' };
 
   const lock = readText(path.join(root, 'ios', 'Podfile.lock'));
-  if (!lock) return { name, status: 'warn', message: 'not found', hint: `Run ${POD_INSTALL}` };
+  if (!lock) return { name, status: 'warn', message: 'not found', hint: `Run ${POD_INSTALL}`, fix: 'pod install' };
   if (lock !== readText(path.join(root, 'ios', 'Pods', 'Manifest.lock'))) {
-    return { name, status: 'warn', message: 'ios/Pods is not in sync with it', hint: `Run ${POD_INSTALL}` };
+    return { name, status: 'warn', message: 'ios/Pods is not in sync with it', hint: `Run ${POD_INSTALL}`, fix: 'pod install' };
   }
   return { name, status: 'ok', message: 'matches the installed pods' };
 }
 
 // First version number a command prints (java prints to stderr),
 // or null when the command is missing or fails.
-function commandVersion(command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
-  if (result.error || result.status !== 0) return null;
+function commandVersion(run, command, args, cwd) {
+  const result = run(command, args, { cwd });
+  if (!result || result.status !== 0) return null;
   return semver.coerce(`${result.stdout}${result.stderr}`)?.version ?? null;
 }
 
@@ -262,4 +290,163 @@ function readJson(file) {
 function sameEntries(a = {}, b = {}) {
   const keys = Object.keys(a);
   return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
+}
+
+// ---- env --fix ----
+
+// The safe fixes for the rows marked with `fix`, in the order they have to run:
+// node_modules first (pod install reads it), then the SDK path, the gems, the pods.
+export function planFixes(project, rows, tools = {}, platform = process.platform) {
+  const { root, pkg } = project;
+  const wanted = new Set(rows.filter((row) => row.fix && row.status !== 'ok').map((row) => row.fix));
+  const plan = [];
+  if (wanted.has('install')) plan.push({ kind: 'run', command: packageManager(root, pkg), args: ['install'], cwd: root });
+  if (wanted.has('local.properties')) {
+    const sdk = tools.android?.sdk;
+    if (sdk?.defaultExists) plan.push(localPropertiesFix(root, sdk.defaultPath));
+  }
+  const pods = wanted.has('pod install') ? podCommand(root, platform) : null;
+  const needsGems = wanted.has('bundle install') || (pods?.command === 'bundle' && tools.gemsInstalled === false);
+  if (needsGems && existsSync(path.join(root, 'Gemfile'))) {
+    plan.push({ kind: 'run', command: 'bundle', args: ['install'], cwd: root });
+  }
+  if (pods) plan.push({ kind: 'run', ...pods });
+  return plan;
+}
+
+// Writes sdk.dir into android/local.properties, keeping the other lines of the file.
+export function localPropertiesFix(root, sdkPath) {
+  const file = path.join(root, 'android', 'local.properties');
+  const line = `sdk.dir=${propertiesPath(sdkPath)}`;
+  const current = readText(file);
+  let content;
+  if (current === null) {
+    content = `# Where the Android SDK is on this computer. Don't commit this file.\n${line}\n`;
+  } else if (/^\s*sdk\.dir\s*[=:]/m.test(current)) {
+    content = current.replace(/^\s*sdk\.dir\s*[=:].*$/m, line);
+  } else {
+    content = `${current}${current.endsWith('\n') || current === '' ? '' : '\n'}${line}\n`;
+  }
+  return { kind: 'write', file, content, line, exists: current !== null };
+}
+
+// Applies a plan from planFixes. `run(command, args, cwd)` returns true on success.
+// Stops at the first failed step: pod install is pointless after a failed bundle install.
+export function applyFixes(plan, { run = runInherit, onStep = () => {} } = {}) {
+  const results = [];
+  for (const step of plan) {
+    onStep(step);
+    let ok = true;
+    if (step.kind === 'write') {
+      try {
+        mkdirSync(path.dirname(step.file), { recursive: true });
+        writeFileSync(step.file, step.content);
+      } catch {
+        ok = false;
+      }
+    } else {
+      ok = run(step.command, step.args, step.cwd);
+    }
+    results.push({ step, ok });
+    if (!ok) break;
+  }
+  return results;
+}
+
+function runInherit(command, args, cwd) {
+  const result = spawnSync(command, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' });
+  return !result.error && result.status === 0;
+}
+
+// ---- env --json and --report ----
+
+export function envJson(project, sections, platform = process.platform) {
+  const { root, pkg } = project;
+  return {
+    project: {
+      name: pkg.name ?? path.basename(root),
+      root,
+      reactNative: pkg.dependencies?.['react-native'] ?? null,
+      expo: pkg.dependencies?.expo ?? null,
+    },
+    platform,
+    rows: sections.flatMap(([section, rows]) => rows.map((row) => ({ section, ...row }))),
+  };
+}
+
+const OS_NAMES = { darwin: 'macOS', linux: 'Linux', win32: 'Windows' };
+
+// A short block to paste into a GitHub issue or Discord, with the home folder shortened to ~.
+export function envReport(project, tools, sections, { home = os.homedir() } = {}) {
+  const { root, pkg } = project;
+  const props = readProperties(readText(gradleProperties(root)));
+  const version = (name) => installedVersion(root, name) ?? pkg.dependencies?.[name] ?? pkg.devDependencies?.[name] ?? null;
+  const system = tools.os;
+  const managers = Object.entries(tools.managers ?? {})
+    .filter(([, value]) => value)
+    .map(([name, value]) => `${name} ${value}`)
+    .join(', ');
+  const folder = sdkFolder(tools.android?.sdk);
+  const xcode = tools.ios?.xcode;
+
+  const lines = [
+    ['OS', system && `${OS_NAMES[system.platform] ?? system.platform} ${system.version} (${system.arch})`],
+    ['Node', tools.node],
+    ['Package manager', `${packageManager(root, pkg)}${managers ? ` (installed: ${managers})` : ''}`],
+    ['Java', tools.java ?? 'not found'],
+    ['Ruby', tools.ruby ?? (existsSync(path.join(root, 'Gemfile')) ? 'not found' : null)],
+    ['CocoaPods', tools.ios?.cocoapods],
+    ['Xcode', xcode?.version && `${xcode.version}${xcode.build ? ` (${xcode.build})` : ''}`],
+    ['Android SDK', folder ? androidSummary(folder) : tools.android ? 'not found' : null],
+    ['Watchman', tools.watchman],
+    ['react-native', version('react-native')],
+    ['react', version('react')],
+    ['expo', version('expo')],
+    ['Hermes', props.hermesEnabled],
+    ['New Arch', props.newArchEnabled],
+  ].filter(([, value]) => value);
+
+  const width = Math.max(...lines.map(([label]) => label.length));
+  const problems = sections.flatMap(([section, rows]) =>
+    rows.filter((row) => row.status === 'fail' || row.status === 'warn').map((row) => ({ section, ...row })),
+  );
+  const text = [
+    '```',
+    `${pkg.name ?? path.basename(root)} (rn-buddy env --report)`,
+    ...lines.map(([label, value]) => `${label.padEnd(width)}  ${value}`),
+    '',
+    problems.length === 0 ? 'No problems found' : 'Problems',
+    ...problems.map((row) => {
+      const icon = row.status === 'fail' ? '✖' : '⚠';
+      return `${icon} ${row.section} › ${row.name}${row.version ? ` ${row.version}` : ''}: ${row.message}`;
+    }),
+    '```',
+  ].join('\n');
+  return shortenHome(text, home);
+}
+
+function androidSummary(folder) {
+  const list = (dir, pattern = /./) => {
+    try {
+      return readdirSync(path.join(folder, dir)).filter((name) => pattern.test(name));
+    } catch {
+      return [];
+    }
+  };
+  const platforms = list('platforms', /^android-[\d.]+$/)
+    .map((name) => name.slice('android-'.length))
+    .sort((a, b) => parseFloat(a) - parseFloat(b));
+  return [
+    folder,
+    platforms.length ? `platforms ${platforms.join(', ')}` : 'no platforms',
+    list('build-tools').length && `build-tools ${list('build-tools').join(', ')}`,
+    list('ndk').length && `NDK ${list('ndk').join(', ')}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+export function shortenHome(text, home) {
+  if (!home || home === path.parse(home).root) return text;
+  return text.split(home).join('~');
 }

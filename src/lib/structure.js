@@ -6,16 +6,36 @@ const TEMPLATES = new URL('../templates/structure/', import.meta.url);
 
 // The folders `structure` creates, in the order they are printed. '' is src/ itself.
 export const FOLDERS = ['', 'screens', 'components', 'navigation', 'hooks', 'services', 'store', 'theme', 'utils', 'assets', 'types'];
+
+// The --feature-based preset: [folder, template]. Templates in features/ are written for this
+// layout; theme/ and types/ are the same in both.
+export const FEATURE_FOLDERS = [
+  ['', 'features/src'],
+  ['features', 'features/features'],
+  ['features/auth', 'features/auth'],
+  ['features/auth/screens', 'features/auth-screens'],
+  ['features/auth/components', 'features/auth-components'],
+  ['features/auth/hooks', 'features/auth-hooks'],
+  ['components', 'features/components'],
+  ['navigation', 'features/navigation'],
+  ['services', 'features/services'],
+  ['theme', 'theme'],
+  ['utils', 'features/utils'],
+  ['types', 'types'],
+];
 const TYPESCRIPT_ONLY = new Set(['types']);
 
 // One entry per README: { file, summary, content, exists }. `file` is relative to the project root.
-export function planStructure(root) {
+export function planStructure(root, { featureBased = false } = {}) {
   const typescript = isTypeScript(root);
-  return FOLDERS.filter((folder) => typescript || !TYPESCRIPT_ONLY.has(folder)).map((folder) => {
-    const file = path.join('src', folder, 'README.md');
-    const content = renderTemplate(readFileSync(new URL(`${folder || 'src'}.md`, TEMPLATES), 'utf8'), typescript);
-    return { file, summary: summary(content), content, exists: existsSync(path.join(root, file)) };
-  });
+  const folders = featureBased ? FEATURE_FOLDERS : FOLDERS.map((folder) => [folder, folder || 'src']);
+  return folders
+    .filter(([folder]) => typescript || !TYPESCRIPT_ONLY.has(folder))
+    .map(([folder, template]) => {
+      const file = path.join('src', ...folder.split('/'), 'README.md');
+      const content = renderTemplate(readFileSync(new URL(`${template}.md`, TEMPLATES), 'utf8'), typescript);
+      return { file, summary: summary(content), content, exists: existsSync(path.join(root, file)) };
+    });
 }
 
 // Creates the missing folders and READMEs. Existing files are never touched.
