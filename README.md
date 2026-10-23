@@ -14,6 +14,8 @@ npx rn-buddy explain react-native-svg   # details for one package
 npx rn-buddy explain --dir ../my-app    # explain another project
 npx rn-buddy explain --offline          # no network lookups
 npx rn-buddy env                        # check Node/Java/Ruby versions and lockfiles
+npx rn-buddy structure --dry-run        # preview the src/ folder layout
+npx rn-buddy structure                  # create it
 ```
 
 Example:
@@ -64,6 +66,29 @@ Lockfiles
 
 `✖` means the build will fail and `env` exits with code 1, so you can also use it in CI. `⚠` is worth a look but may be fine.
 
+### Organizing your code: `structure`
+
+Creates a `src/` folder with one folder per kind of code. Each folder gets a README that explains what goes in it, with an example:
+
+```
+src/
+  README.md        ← map of the folders, and which folder may import which
+  screens/         ← one component per screen
+  components/      ← reusable UI pieces
+  navigation/      ← navigators
+  hooks/           ← custom hooks (useSomething)
+  services/        ← API calls, storage
+  store/           ← state shared between screens
+  theme/           ← colors, spacing, font sizes
+  utils/           ← small helper functions
+  assets/          ← images and fonts
+  types/           ← shared TypeScript types (TypeScript projects only)
+```
+
+- The examples are TypeScript if the project has a `tsconfig.json`, and JavaScript otherwise.
+- Existing files are never overwritten, so it is safe to run again.
+- Git doesn't track empty folders, but each one has a README, so the layout gets committed.
+
 ### Where the explanations come from
 
 1. `src/data/explain.json`: hand-written notes for common packages and files.
@@ -105,6 +130,7 @@ src/cli.js             # registers commands with commander
 src/commands/          # one file per command
 src/lib/               # project reading, notes lookup, online lookups
 src/data/explain.json  # plain-English notes; add entries here
+src/templates/         # README templates that `structure` writes
 test/                  # node:test tests
 ```
 
@@ -137,7 +163,7 @@ If npm rejects the name as too similar to an existing package, use a scoped name
 
 - [x] `explain`: understand packages and files
 - [x] `env`: check Node/Java/Ruby versions and lockfiles for this project
-- [ ] `structure`: add a `src/` folder layout with a README in each folder
+- [x] `structure`: add a `src/` folder layout with a README in each folder
 - [ ] `add <recipe | package>`: install features (navigation, state, api) the right way
 
 ## License

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { makeProject } from './helpers.js';
@@ -66,6 +68,29 @@ test('env exits with 1 when something must be fixed', () => {
   const { status, stdout } = rnBuddy('env', '--dir', old);
   assert.equal(status, 1);
   assert.match(stdout, /✖ Node .*package\.json engines wants >=999/);
+});
+
+test('structure --dry-run writes nothing', () => {
+  const root = makeProject({ 'package.json': {}, 'tsconfig.json': {} });
+  const { status, stdout } = rnBuddy('structure', '--dry-run', '--dir', root);
+  assert.equal(status, 0);
+  assert.match(stdout, /\(TypeScript examples\)/);
+  assert.match(stdout, /\+ src\/types\/README\.md +TypeScript types/);
+  assert.match(stdout, /Would create 11 READMEs/);
+  assert.equal(existsSync(path.join(root, 'src')), false);
+});
+
+test('structure creates the layout once', () => {
+  const root = makeProject({ 'package.json': {}, 'App.js': '' });
+  const first = rnBuddy('structure', '--dir', root);
+  assert.match(first.stdout, /\(JavaScript examples\)/);
+  assert.match(first.stdout, /Created 10 READMEs/);
+  assert.match(first.stdout, /move App\.js to src\/App\.js/);
+  assert.ok(existsSync(path.join(root, 'src', 'components', 'README.md')));
+
+  const second = rnBuddy('structure', '--dir', root);
+  assert.match(second.stdout, /– src\/components\/README\.md +already exists/);
+  assert.match(second.stdout, /Nothing to do/);
 });
 
 test('fails with a clear message outside a project', () => {
