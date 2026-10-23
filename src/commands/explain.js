@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import pc from 'picocolors';
 import { categories, lookupFile, lookupPackage } from '../lib/notes.js';
@@ -7,15 +7,24 @@ import { checkPackages, describeOnline, directoryInfo, npmDescription } from '..
 
 const HIDDEN_FILES = new Set(['.git', '.DS_Store']);
 const MAX_NAME_WIDTH = 46;
+const MAX_FOLDER_ENTRIES = 8;
 const POD_INSTALL = '(cd ios && bundle exec pod install)';
 
 export async function explain(name, options = {}) {
   const project = readProject(options.dir ?? process.cwd());
-  if (name) {
-    await explainPackage(project, name, options);
-  } else {
+  if (!name) {
     await explainProject(project, options);
+  } else if (isProjectPath(project, name)) {
+    explainPath(project, name);
+  } else {
+    await explainPackage(project, name, options);
   }
+}
+
+// A name is a file or folder when it exists in the project and isn't one of its dependencies
+// (a dependency wins, so `explain react` still explains the package).
+function isProjectPath({ root, deps }, name) {
+  return !deps.some((dep) => dep.name === name) && existsSync(path.resolve(root, name));
 }
 
 async function explainProject({ root, pkg, deps }, { offline = false }) {
@@ -119,6 +128,35 @@ async function explainPackage({ root, deps }, name, { offline = false }) {
     line('Directory', pc.dim('not listed on reactnative.directory (common for plain JS packages)'));
   }
   line('npm', `https://www.npmjs.com/package/${name}`);
+}
+
+function explainPath({ root }, name) {
+  const target = path.resolve(root, name);
+  const relative = path.relative(root, target) || '.';
+  const isFolder = statSync(target).isDirectory();
+
+  console.log(`${pc.bold(isFolder ? `${relative}/` : relative)}  ${pc.dim(isFolder ? 'folder' : 'file')}\n`);
+  line('What it is', lookupFile(relative) ?? (isFolder ? readmeSummary(target) : null) ?? pc.dim('No description found'));
+
+  if (isFolder) {
+    const entries = readdirSync(target, { withFileTypes: true })
+      .filter((entry) => !HIDDEN_FILES.has(entry.name))
+      .map((entry) => (entry.isDirectory() ? `${entry.name}/` : entry.name))
+      .sort((a, b) => a.localeCompare(b));
+    const shown = entries.slice(0, MAX_FOLDER_ENTRIES).join(', ');
+    const more = entries.length > MAX_FOLDER_ENTRIES ? pc.dim(` and ${entries.length - MAX_FOLDER_ENTRIES} more`) : '';
+    line('Contains', entries.length ? shown + more : pc.dim('nothing yet'));
+  }
+  if (!lookupFile(relative) && relative.includes(path.sep)) {
+    console.log(pc.dim('\nrn-buddy has notes for files in the project root. Run rn-buddy explain to see them all.'));
+  }
+}
+
+// First paragraph of a folder's README.md (like the ones `rn-buddy structure` creates).
+function readmeSummary(folder) {
+  const readme = path.join(folder, 'README.md');
+  if (!existsSync(readme)) return null;
+  return readFileSync(readme, 'utf8').split('\n').find((text) => text.trim() && !text.startsWith('#')) ?? null;
 }
 
 function line(label, value) {

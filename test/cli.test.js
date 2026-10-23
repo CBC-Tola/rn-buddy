@@ -48,6 +48,39 @@ test('explain <package> shows one package', () => {
   assert.match(stdout, /Native code +yes/);
 });
 
+test('explain <file> explains a file in the project', () => {
+  const { status, stdout } = rnBuddy('explain', 'App.tsx', '--offline', '--dir', project);
+  assert.equal(status, 0);
+  assert.match(stdout, /App\.tsx {2}file/);
+  assert.match(stdout, /What it is +Root component/);
+  assert.doesNotMatch(stdout, /npmjs\.com/);
+
+  assert.match(rnBuddy('explain', 'notes.txt', '--offline', '--dir', project).stdout, /What it is +No description found/);
+});
+
+test('explain <folder> shows its note and what it contains', () => {
+  const { stdout } = rnBuddy('explain', 'ios/', '--offline', '--dir', project);
+  assert.match(stdout, /ios\/ {2}folder/);
+  assert.match(stdout, /What it is +Native iOS project/);
+  assert.match(stdout, /Contains +nothing yet/);
+});
+
+test('explain <folder> falls back to the folder README', () => {
+  const root = makeProject({
+    'package.json': {},
+    'src/hooks/README.md': '# hooks/\n\nCustom React hooks.\n',
+    'src/hooks/useToggle.ts': '',
+  });
+  const { stdout } = rnBuddy('explain', 'src/hooks', '--offline', '--dir', root);
+  assert.match(stdout, /What it is +Custom React hooks\./);
+  assert.match(stdout, /Contains +README\.md, useToggle\.ts/);
+});
+
+test('a dependency wins over a folder with the same name', () => {
+  const root = makeProject({ 'package.json': { dependencies: { jest: '^29.0.0' } }, 'jest/': '' });
+  assert.match(rnBuddy('explain', 'jest', '--offline', '--dir', root).stdout, /jest {2}\^29\.0\.0 · dependency/);
+});
+
 test('explain <package> works for packages not in the project', () => {
   const { stdout } = rnBuddy('explain', 'zustand', '--offline', '--dir', project);
   assert.match(stdout, /zustand {2}not in this project/);

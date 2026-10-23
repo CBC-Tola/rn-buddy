@@ -15,7 +15,7 @@ export function run(argv) {
   program
     .command('explain')
     .description('Explain the packages and files of a React Native project')
-    .argument('[package]', 'explain one package in detail')
+    .argument('[name]', 'explain one package, file or folder in detail')
     .option('-d, --dir <path>', 'project folder (default: current folder)')
     .option('--offline', 'skip online lookups for packages rn-buddy does not know')
     .action((name, options) => explain(name, options));
