@@ -185,7 +185,7 @@ async function explainPath(project, name, options) {
   const source = !isFolder && SOURCE_FILE.test(relative) && !/^(node_modules|android|ios)\//.test(relative);
 
   console.log(`${pc.bold(isFolder ? `${relative}/` : relative)}  ${pc.dim(isFolder ? 'folder' : 'file')}\n`);
-  // A folder's own README (like the ones `rn-buddy structure` writes) says more than a general note.
+  // A folder's own README says more than a general note.
   const what = (isFolder ? readmeSummary(target) : null) ?? note;
   if (what) {
     line('What it is', what);
@@ -226,8 +226,6 @@ function explainMissingPath({ root, expo }, name) {
     console.log(`\nExpo projects don't have ${top}/ until you run ${pc.bold(PREBUILD)}: it generates the native folders from app.json.`);
     console.log(pc.dim('→ Most Expo apps never need them: native settings go in app.json and config plugins,'));
     console.log(pc.dim('  and EAS Build runs prebuild in the cloud.'));
-  } else if (relative.startsWith('src/') && !existsSync(path.join(root, 'src'))) {
-    console.log(pc.dim('\n→ rn-buddy structure creates the src/ folders with a README in each.'));
   }
 }
 
@@ -424,7 +422,7 @@ function folderEntries(folder) {
     .sort((a, b) => a.localeCompare(b));
 }
 
-// First paragraph of a folder's README.md (like the ones `rn-buddy structure` creates).
+// First paragraph of a folder's README.md .
 function readmeSummary(folder) {
   const readme = path.join(folder, 'README.md');
   if (!existsSync(readme)) return null;

@@ -68,14 +68,32 @@ export async function confirm(question = 'Make these changes?') {
   return !/^n/i.test(answer.trim());
 }
 
-export async function ask(question) {
+// With { cancellable: true }, Esc, Ctrl+C and Ctrl+D close the question and return null.
+export async function ask(question, { cancellable = false } = {}) {
   if (!process.stdin.isTTY) {
     throw new Error('Not running in a terminal. Add --yes to make these changes, or --dry-run to only see them.');
   }
   const prompt = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await prompt.question(question);
-  prompt.close();
-  return answer;
+  if (!cancellable) {
+    const answer = await prompt.question(question);
+    prompt.close();
+    return answer;
+  }
+  return new Promise((resolve) => {
+    const finish = (answer) => {
+      // Resolve first: closing the prompt triggers the 'close' handler, which would resolve null.
+      resolve(answer);
+      process.stdin.off('keypress', onKey);
+      prompt.close();
+    };
+    const onKey = (_, key) => {
+      if (key?.name === 'escape') finish(null);
+    };
+    process.stdin.on('keypress', onKey);
+    prompt.once('SIGINT', () => finish(null));
+    prompt.once('close', () => finish(null));
+    prompt.question(question).then(finish, () => finish(null));
+  });
 }
 
 // Prints markdown such as a recipe's next.md: code blocks indented and colored, fences dropped.

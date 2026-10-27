@@ -47,4 +47,4 @@ const { data, isLoading, error } = useQuery({ queryKey: ['todos'], queryFn: getT
 
 - `rn-buddy add state` installs Zustand with an example store
 - `rn-buddy add api` installs TanStack Query with an example hook
-- `rn-buddy structure` explains where stores and hooks go in `src/`
+- `rn-buddy structure src` shows how your `src/` folders are organized

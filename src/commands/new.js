@@ -11,19 +11,17 @@ export async function createApp(name, options = {}, context = {}) {
 
   // Check --recipes before asking anything, so a typo fails right away.
   const given = options.recipes === undefined ? null : parseRecipes(options.recipes);
-  const structure = options.structure !== false;
 
   console.log(`${pc.bold(`rn-buddy new ${name}`)}  creates a React Native Community CLI app and sets it up`);
   console.log(pc.dim(`→ Prefer Expo? Run npx create-expo-app@latest instead.`));
 
   const recipes = given ? given.recipes : options.yes ? [] : await askRecipes();
-  const plan = planNew({ name, cwd, recipes, structure });
+  const plan = planNew({ name, cwd, recipes });
 
   console.log(`\n${pc.bold('Plan')}`);
   plan.steps.forEach((step, i) => {
     printStep(`${i + 1}.`, [step.title, pc.dim(`$ ${step.display}`)], 4);
   });
-  if (!structure) console.log(pc.dim('\nSkipping the src/ folder layout (--no-structure). Add it later with rn-buddy structure.'));
 
   if (!options.yes) {
     requireTerminal();

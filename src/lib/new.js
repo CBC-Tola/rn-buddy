@@ -25,7 +25,6 @@ export function folderProblem(cwd, name) {
 }
 
 // "navigation, api" → ['navigation', 'api']. Unknown names throw, listing the recipes that exist.
-// `structure` is accepted too: it is the folder layout, not a recipe, so it's returned separately.
 export function parseRecipes(text, available = Object.keys(RECIPES)) {
   const names = [
     ...new Set(
@@ -35,11 +34,11 @@ export function parseRecipes(text, available = Object.keys(RECIPES)) {
         .filter(Boolean),
     ),
   ];
-  const unknown = names.filter((name) => name !== 'structure' && !available.includes(name));
+  const unknown = names.filter((name) => !available.includes(name));
   if (unknown.length > 0) {
     throw new Error(`Unknown recipe${unknown.length === 1 ? '' : 's'}: ${unknown.join(', ')}. Recipes: ${available.join(', ')}.`);
   }
-  return { recipes: names.filter((name) => name !== 'structure'), structure: names.includes('structure') };
+  return { recipes: names };
 }
 
 // The answer to the numbered recipe question: "1 3", "1,3", "navigation api", "all", or empty for none.
@@ -61,7 +60,7 @@ export function parseChoice(answer, available = Object.keys(RECIPES)) {
 
 // The commands `new` runs, in order. Each step has `command` + `args` to spawn, the `cwd` to run
 // it in and `display`, the command a learner would type to do the same by hand.
-export function planNew({ name, cwd, recipes = [], structure = true, bin = BIN, node = process.execPath }) {
+export function planNew({ name, cwd, recipes = [], bin = BIN, node = process.execPath }) {
   const folder = path.join(cwd, name);
   const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const steps = [
@@ -74,15 +73,6 @@ export function planNew({ name, cwd, recipes = [], structure = true, bin = BIN, 
       required: true,
     },
   ];
-  if (structure) {
-    steps.push({
-      title: 'Add the src/ folder layout',
-      command: node,
-      args: [bin, 'structure', '--dir', folder],
-      cwd: folder,
-      display: 'rn-buddy structure',
-    });
-  }
   for (const recipe of recipes) {
     steps.push({
       title: `Add the ${recipe} recipe: ${RECIPES[recipe]?.summary ?? recipe}`,

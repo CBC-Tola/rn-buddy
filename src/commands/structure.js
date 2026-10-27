@@ -1,64 +1,41 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import pc from 'picocolors';
-import { readProject } from '../lib/project.js';
-import { applyStructure, planStructure } from '../lib/structure.js';
-import { isTypeScript } from '../lib/templates.js';
+import { isExpo, readProject } from '../lib/project.js';
+import { buildTree, countTree, DEFAULT_DEPTH, renderTree } from '../lib/tree.js';
+import { printHeader } from '../lib/ui.js';
 
-export function structure(options = {}) {
-  const { root, pkg } = readProject(options.dir ?? process.cwd());
-  const dryRun = Boolean(options.dryRun);
-  const featureBased = Boolean(options.featureBased);
-  const plan = planStructure(root, { featureBased });
-  if (!dryRun) applyStructure(root, plan);
+export function structure(name, options = {}) {
+  const project = readProject(options.dir ?? process.cwd());
+  const { root } = project;
+  const depth = parseDepth(options.depth);
 
-  const reactNative = pkg.dependencies?.['react-native'];
-  console.log(pc.bold(pkg.name ?? path.basename(root)) + (reactNative ? pc.dim(` · React Native ${reactNative}`) : ''));
-  console.log(pc.dim(root));
+  const folder = name ? path.resolve(root, name) : root;
+  const relative = path.relative(root, folder).split(path.sep).join('/');
+  if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error(`${name} is outside the project.`);
+  if (!existsSync(folder)) throw new Error(`There is no ${relative}/ in this project.`);
+  if (!statSync(folder).isDirectory()) throw new Error(`${relative} is a file, not a folder. rn-buddy explain ${relative} describes it.`);
 
-  const language = isTypeScript(root) ? 'TypeScript' : 'JavaScript';
-  const preset = featureBased ? 'feature-based, ' : '';
-  console.log(`\n${pc.bold('Folder layout')} ${pc.dim(`(${preset}${language} examples)`)}`);
-  const width = Math.max(...plan.map((item) => item.file.length));
-  for (const item of plan) {
-    const icon = item.exists ? pc.dim('–') : pc.green('+');
-    const note = item.exists ? pc.dim('already exists, kept as is') : item.summary;
-    console.log(`  ${icon} ${item.file.padEnd(width)}  ${note}`);
+  printHeader(project);
+  const tree = buildTree(folder, { root, depth, folders: Boolean(options.folders), expo: isExpo(project.pkg) });
+
+  console.log(`\n${pc.bold(relative ? `${relative}/` : './')}`);
+  if (tree.children.length === 0) {
+    console.log(pc.dim('  empty'));
+    return;
   }
+  for (const line of renderTree(tree, { color: pc.cyan, dim: pc.dim })) console.log(line);
 
-  const created = plan.filter((item) => !item.exists).length;
-  console.log('');
-  if (created === 0) {
-    console.log('Nothing to do: every folder already has a README.');
-  } else if (dryRun) {
-    console.log(`Would create ${created} README${created === 1 ? '' : 's'}. Run again without --dry-run to create them.`);
-  } else {
-    console.log(`Created ${created} README${created === 1 ? '' : 's'}. Existing files were not changed.`);
-    // An older type-based src/README.md is kept, so point to the feature-based rules instead.
-    const start = featureBased && plan[0].exists ? 'src/features/README.md' : 'src/README.md';
-    console.log(pc.dim(`Start with ${start}: it shows which folder imports which.`));
-  }
-
-  if (featureBased) printFeatureNotes(root, plan);
-
-  const app = ['App.tsx', 'App.js'].find((file) => existsSync(path.join(root, file)));
-  if (app && !dryRun) {
-    console.log(pc.dim(`Tip: you can move ${app} to src/${app} and import it in index.js with './src/App'.`));
-  }
+  const { folders, files } = countTree(tree);
+  const parts = [`${folders} folder${folders === 1 ? '' : 's'}`];
+  if (!options.folders) parts.push(`${files} file${files === 1 ? '' : 's'}`);
+  console.log(`\n${parts.join(', ')}${pc.dim(` · ${depth} level${depth === 1 ? '' : 's'} deep`)}`);
+  if (depth === DEFAULT_DEPTH) console.log(pc.dim('→ Go deeper with --depth 5, or look at one folder: rn-buddy structure src'));
 }
 
-// Feature-based on top of an existing type-based src/: both can live together while code moves,
-// but the old src/README.md (kept as is) still describes the type-based layout.
-function printFeatureNotes(root, plan) {
-  const typeBased = ['screens', 'hooks', 'store'].filter((folder) => existsSync(path.join(root, 'src', folder)));
-  if (typeBased.length > 0) {
-    console.log(
-      pc.dim(
-        `src/ already has type-based folders (${typeBased.map((f) => `${f}/`).join(', ')}). They can stay while you move code into features/, one feature at a time.`,
-      ),
-    );
-  }
-  if (plan[0].exists) {
-    console.log(pc.dim('src/README.md was kept as is, so it may still describe the type-based layout.'));
-  }
+function parseDepth(value) {
+  if (value === undefined) return DEFAULT_DEPTH;
+  const depth = Number(value);
+  if (!Number.isInteger(depth) || depth < 1) throw new Error(`"${value}" is not a depth. Use a number like 2, e.g. rn-buddy structure --depth 2`);
+  return depth;
 }

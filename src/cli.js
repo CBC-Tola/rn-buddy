@@ -28,6 +28,15 @@ export function run(argv) {
     .action(load('explain'));
 
   program
+    .command('structure')
+    .description('Show the folder tree of your project, with what each folder and file is for')
+    .argument('[folder]', 'show only this folder, e.g. src; leave out for the whole project')
+    .option(...DIR)
+    .option('-L, --depth <levels>', 'how many levels to open (default: 3)')
+    .option('--folders', 'show folders only, no files')
+    .action(load('structure'));
+
+  program
     .command('learn')
     .description('Short lessons: reload vs rebuild, Metro, autolinking, the New Architecture, ...')
     .argument('[topic]', 'the lesson to show; leave out to list them')
@@ -93,14 +102,6 @@ export function run(argv) {
   program.commandsGroup('Change your project');
 
   program
-    .command('structure')
-    .description('Add a src/ folder layout with a README in each folder')
-    .option(...DIR)
-    .option('--feature-based', 'one folder per feature (src/features/auth/...) instead of one per kind of code')
-    .option('--dry-run', 'show what would be created without writing files')
-    .action(load('structure'));
-
-  program
     .command('add')
     .description('Install a recipe or any package the right way')
     .argument('[name]', 'a recipe or a package name; leave out to list recipes')
@@ -136,6 +137,13 @@ export function run(argv) {
   program.commandsGroup('Run and ship');
 
   program
+    .command('run')
+    .description('Run the app on a device, emulator or simulator, and pick the platform for you')
+    .argument('[device]', 'the device name (or part of it) or id; leave out to choose from a list')
+    .option(...DIR)
+    .action(load('run'));
+
+  program
     .command('device')
     .description('List and start emulators, simulators and phones; connect a phone to Metro')
     .argument('[action]', 'list (default), start or connect')
@@ -158,7 +166,6 @@ export function run(argv) {
     .description('Create a React Native app and set it up with rn-buddy recipes')
     .argument('<name>', 'the app name, e.g. MyApp')
     .option('-r, --recipes <names>', 'recipes to add, comma separated, e.g. navigation,state,api')
-    .option('--no-structure', 'skip the src/ folder layout')
     .option('-y, --yes', "don't ask questions")
     .action(load('new', 'createApp'));
 

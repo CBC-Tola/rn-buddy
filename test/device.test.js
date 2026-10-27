@@ -15,10 +15,14 @@ import {
   parseDevicectlUdids,
   parsePorts,
   parseSimulators,
+  pickableTargets,
   reverseCommands,
   runCommands,
+  runInvocation,
+  runTargets,
   startCommands,
   startTargets,
+  waitForEmulator,
 } from '../src/lib/device.js';
 import { makeProject } from './helpers.js';
 
@@ -245,6 +249,55 @@ test('runCommands use the package manager, and Expo', () => {
   assert.equal(runCommands({ expo: true }).androidOn('emulator-5554'), 'npx expo run:android --device emulator-5554');
 });
 
+test('runTargets lists what is ready, with the platform of each', () => {
+  const found = listDevices({ run: fakeRun(ALL_TOOLS), env: {}, platform: 'darwin', exists: () => false });
+  const targets = runTargets(found);
+  assert.deepEqual(
+    targets.map((t) => [t.platform, t.kind, t.name, t.running]),
+    [
+      ['android', 'emulator', 'Pixel_8_API_35', true],
+      ['android', 'phone', 'Pixel 7', true],
+      ['android', 'emulator', 'Medium_Phone_API_36', false],
+      ['ios', 'phone', "Tola's iPhone", true],
+      ['ios', 'simulator', 'iPhone 16 Pro', true],
+      ['ios', 'simulator', 'iPhone 16', false],
+      ['ios', 'simulator', 'iPhone 15', false],
+      ['ios', 'simulator', 'iPhone 15', false],
+    ],
+  );
+  // Unauthorized and offline phones are left out; older iOS versions are not offered in the list.
+  assert.ok(!targets.some((t) => ['0123456789ABCDEF', '192.168.1.20:5555'].includes(t.id)));
+  assert.deepEqual(
+    pickableTargets(targets).filter((t) => t.kind === 'simulator').map((t) => t.id),
+    ['CCCC-18', 'BBBB-18', 'DDDD-18'],
+  );
+});
+
+test('runInvocation picks the command from the device platform', () => {
+  const android = { platform: 'android', kind: 'phone', name: 'Pixel 7', id: 'R58M123ABC' };
+  const sim = { platform: 'ios', kind: 'simulator', name: 'iPhone 16 Pro', id: 'CCCC-18' };
+  const phone = { platform: 'ios', kind: 'phone', name: "Tola's iPhone", id: '00008101-001468603E11001E' };
+  assert.deepEqual(runInvocation(android), { command: 'npm', args: ['run', 'android', '--', '--device', 'R58M123ABC'] });
+  assert.deepEqual(runInvocation(sim, { manager: 'yarn' }), { command: 'yarn', args: ['ios', '--simulator', 'iPhone 16 Pro'] });
+  assert.deepEqual(runInvocation(phone), { command: 'npm', args: ['run', 'ios', '--', '--device', '00008101-001468603E11001E'] });
+  assert.deepEqual(runInvocation(sim, { expo: true }), { command: 'npx', args: ['expo', 'run:ios', '--device', 'iPhone 16 Pro'] });
+  assert.deepEqual(runInvocation(android, { expo: true }), { command: 'npx', args: ['expo', 'run:android', '--device', 'R58M123ABC'] });
+});
+
+test('waitForEmulator returns the serial once the emulator has booted', async () => {
+  let polls = 0;
+  const run = (command, args) => {
+    const key = args.join(' ');
+    if (key === 'devices -l') return { status: 0, stdout: polls++ < 2 ? 'List of devices attached\n' : ADB_DEVICES, stderr: '' };
+    if (key === '-s emulator-5554 emu avd name') return { status: 0, stdout: 'Pixel_8_API_35\r\nOK\r\n', stderr: '' };
+    if (key === '-s emulator-5554 shell getprop sys.boot_completed') return { status: 0, stdout: polls < 4 ? '\n' : '1\r\n', stderr: '' };
+    return { status: 1, stdout: '', stderr: '' };
+  };
+  const sleep = async () => {};
+  assert.equal(await waitForEmulator('Pixel_8_API_35', { adb: 'adb' }, { run, sleep }), 'emulator-5554');
+  assert.equal(await waitForEmulator('Other_AVD', { adb: 'adb' }, { run, sleep, timeout: 0 }), null);
+});
+
 function rnBuddy(...args) {
   // An empty PATH and SDK folder: no adb, emulator or xcrun, like a fresh machine.
   return spawnSync(process.execPath, [bin, ...args], {
@@ -273,4 +326,14 @@ test('CLI: rn-buddy device connect prints the addresses to use', () => {
   const bad = rnBuddy('device', 'reboot', '--dir', root);
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /Unknown action "reboot"/);
+});
+
+test('CLI: rn-buddy run says what is missing when there is nothing to run on', () => {
+  const root = makeProject({ 'package.json': { name: 'DemoApp', dependencies: { 'react-native': '0.88.0' } } });
+  for (const args of [[], ['pixel']]) {
+    const { status, stdout } = rnBuddy('run', ...args, '--dir', root);
+    assert.equal(status, 1);
+    assert.match(stdout, /adb not found/);
+    assert.match(stdout, /No device, emulator or simulator to run on/);
+  }
 });

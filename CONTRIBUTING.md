@@ -31,7 +31,6 @@ src/lib/sources.js       # lists and reads the app's own JS/TS files
 src/data/explain.json    # plain-English notes for packages, files, native paths and settings
 src/data/errors.json     # error signatures for `why`
 src/data/lessons/        # one markdown file per `learn` lesson
-src/templates/structure/ # README templates that `structure` writes
 src/templates/recipes/   # starter files and next steps for each `add` recipe
 test/                    # node:test tests
 ```
@@ -91,9 +90,9 @@ Add an entry to `errors` in `src/data/errors.json`. The `about` block at the top
 
 Each `rn-buddy learn` lesson is a markdown file in `src/data/lessons/`, named after its id. Start with `# Title`, then a one-paragraph summary (shown in the lesson list), then `## ` sections. Keep it to one or two screens, and end with a `## Related` section listing the rn-buddy commands that help.
 
-## Editing the `structure` templates
+## Template placeholders
 
-Each folder's README comes from `src/templates/structure/<folder>.md` (`src.md` is `src/README.md`). The templates are written in TypeScript and converted for JavaScript projects:
+Recipe templates in `src/templates/recipes/` are written in TypeScript and converted for JavaScript projects:
 
 | In the template | TypeScript project | JavaScript project |
 |---|---|---|
@@ -102,11 +101,9 @@ Each folder's README comes from `src/templates/structure/<folder>.md` (`src.md` 
 | line ending in `<!-- ts -->` | kept | removed |
 | line ending in `<!-- js -->` | removed | kept |
 
-The text before the first period or colon in each template is the description `structure` prints.
-
 ## Adding a recipe
 
 1. Define the recipe in one of the files in `src/lib/recipes/` (grouped like the `add` list: `navigation.js`, `data.js`, `ui.js`, `permissions.js`, `tooling.js`), then add it to `RECIPES` and `RECIPE_GROUPS` in `src/lib/recipes.js`. The comment above `RECIPES` lists every field: `summary`, `docs`, `packages`, `devPackages`, `files`, `edits`, and the optional `args`, `vars`, `expoGo` and `expo`.
-2. For every entry in `files`, add a template in `src/templates/recipes/<recipe>/`. Name it after the file, with the extension filled in and `.tpl` added. For example, `src/store/useCounterStore.{ts}` comes from `state/useCounterStore.ts.tpl`. Dotfiles have no leading dot in the template name (`.env` comes from `env.tpl`). Templates use the same placeholders as the `structure` templates, plus `{{name}}` for the recipe's `vars`, and lines ending in `<!-- expo -->` or `<!-- cli -->` for one kind of project only.
+2. For every entry in `files`, add a template in `src/templates/recipes/<recipe>/`. Name it after the file, with the extension filled in and `.tpl` added. For example, `src/store/useCounterStore.{ts}` comes from `state/useCounterStore.ts.tpl`. Dotfiles have no leading dot in the template name (`.env` comes from `env.tpl`). Templates use the placeholders from [Template placeholders](#template-placeholders), plus `{{name}}` for the recipe's `vars`, and lines ending in `<!-- expo -->` or `<!-- cli -->` for one kind of project only.
 3. Add `src/templates/recipes/<recipe>/next.md`: the next steps printed after the recipe runs.
 4. `edits` change native and config files. The comment at the top of `src/lib/recipes/edits.js` describes an edit. In short: `apply` returns the new content, the same content when the change is already there, or `null` when the file looks unfamiliar and the user has to make the change by hand. Give it an `undo` when the change can be removed safely, so `add --undo` can revert it. Use `platform: 'android' | 'ios'` for native files and `'expo'` for `app.json` config plugins. Test edits against the current React Native template.

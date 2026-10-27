@@ -41,10 +41,10 @@ test('refuses a folder that already exists', () => {
 });
 
 test('validates recipe names against RECIPES', () => {
-  assert.deepEqual(parseRecipes('navigation, api'), { recipes: ['navigation', 'api'], structure: false });
-  assert.deepEqual(parseRecipes('state,state'), { recipes: ['state'], structure: false });
-  assert.deepEqual(parseRecipes('structure,state'), { recipes: ['state'], structure: true });
-  assert.deepEqual(parseRecipes(''), { recipes: [], structure: false });
+  assert.deepEqual(parseRecipes('navigation, api'), { recipes: ['navigation', 'api'] });
+  assert.deepEqual(parseRecipes('state,state'), { recipes: ['state'] });
+  assert.deepEqual(parseRecipes(''), { recipes: [] });
+  assert.throws(() => parseRecipes('structure'), /Unknown recipe: structure/);
   assert.throws(() => parseRecipes('navigation,redux'), /Unknown recipe: redux\. Recipes: .*navigation/);
   // New recipes added to RECIPES are accepted without changing `new`.
   for (const name of Object.keys(RECIPES)) assert.deepEqual(parseRecipes(name).recipes, [name]);
@@ -61,7 +61,7 @@ test('parses the answer to the recipe question', () => {
   assert.equal(parseChoice('redux', names), null);
 });
 
-test('plans init, then structure, then each recipe through the rn-buddy binary', () => {
+test('plans init, then each recipe through the rn-buddy binary', () => {
   const plan = planNew({ name: 'MyApp', cwd: '/work', recipes: ['navigation', 'api'], bin: '/rn-buddy.js', node: 'node' });
   const folder = path.join('/work', 'MyApp');
   assert.equal(plan.folder, folder);
@@ -69,25 +69,16 @@ test('plans init, then structure, then each recipe through the rn-buddy binary',
     plan.steps.map((step) => [step.command.replace(/\.cmd$/, ''), ...step.args]),
     [
       ['npx', '@react-native-community/cli@latest', 'init', 'MyApp'],
-      ['node', '/rn-buddy.js', 'structure', '--dir', folder],
       ['node', '/rn-buddy.js', 'add', 'navigation', '--yes', '--dir', folder],
       ['node', '/rn-buddy.js', 'add', 'api', '--yes', '--dir', folder],
     ],
   );
   assert.deepEqual(
     plan.steps.map((step) => step.display),
-    ['npx @react-native-community/cli@latest init MyApp', 'rn-buddy structure', 'rn-buddy add navigation', 'rn-buddy add api'],
+    ['npx @react-native-community/cli@latest init MyApp', 'rn-buddy add navigation', 'rn-buddy add api'],
   );
   assert.equal(plan.steps[0].cwd, '/work');
   assert.equal(plan.steps[1].cwd, folder);
-});
-
-test('--no-structure leaves out the structure step', () => {
-  const plan = planNew({ name: 'MyApp', cwd: '/work', recipes: [], structure: false });
-  assert.deepEqual(
-    plan.steps.map((step) => step.display),
-    ['npx @react-native-community/cli@latest init MyApp'],
-  );
 });
 
 test('runs the steps in order, stops when init fails, keeps going after a failed recipe', () => {
@@ -97,10 +88,10 @@ test('runs the steps in order, stops when init fails, keeps going after a failed
     ran.push(args.includes('add') ? args[args.indexOf('add') + 1] : args[1]);
     return { status: args.includes('navigation') ? 1 : 0 };
   });
-  assert.deepEqual(ran, ['init', 'structure', 'navigation', 'state']);
+  assert.deepEqual(ran, ['init', 'navigation', 'state']);
   assert.deepEqual(
     results.map((result) => result.ok),
-    [true, true, false, true],
+    [true, false, true],
   );
 
   const stopped = runNew(plan, () => ({ status: 1 }));
@@ -117,9 +108,9 @@ test('createApp with --yes runs the plan and prints next steps', async () => {
     calls.push({ args, cwd: options.cwd });
     return { status: 0 };
   };
-  const output = await capture(() => createApp('MyApp', { recipes: 'state', structure: true, yes: true }, { cwd, run }));
-  assert.equal(calls.length, 3);
-  assert.deepEqual(calls[2].args.slice(1), ['add', 'state', '--yes', '--dir', path.join(cwd, 'MyApp')]);
+  const output = await capture(() => createApp('MyApp', { recipes: 'state', yes: true }, { cwd, run }));
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1].args.slice(1), ['add', 'state', '--yes', '--dir', path.join(cwd, 'MyApp')]);
   assert.match(output, /create-expo-app@latest/);
   assert.match(output, /\$ npx @react-native-community\/cli@latest init MyApp/);
   assert.match(output, /Next steps[\s\S]*cd MyApp[\s\S]*npm run android[\s\S]*npm run ios[\s\S]*rn-buddy env[\s\S]*rn-buddy learn reload-vs-rebuild/);

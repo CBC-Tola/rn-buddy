@@ -258,26 +258,104 @@ export function lanIp(interfaces = os.networkInterfaces()) {
   return addresses.find(isPrivate) ?? addresses[0] ?? null;
 }
 
-// How to run the app, for the project's package manager. npm needs `--` before extra arguments.
-export function runCommands({ manager = 'npm', expo = false } = {}) {
+// How to run the app, for the project's package manager, as { command, args } to run and as
+// text to show. npm needs `--` before extra arguments.
+export function runInvocations({ manager = 'npm', expo = false } = {}) {
   if (expo) {
+    const run = (platform, device) => ({
+      command: 'npx',
+      args: ['expo', `run:${platform}`, ...(device ? ['--device', device] : [])],
+    });
     return {
-      android: 'npx expo run:android',
-      androidOn: (device) => `npx expo run:android --device ${quote(device)}`,
-      ios: 'npx expo run:ios',
-      iosOn: (device) => `npx expo run:ios --device ${quote(device)}`,
-      iosPhone: (device) => `npx expo run:ios --device ${quote(device)}`,
+      android: () => run('android'),
+      androidOn: (device) => run('android', device),
+      ios: () => run('ios'),
+      iosOn: (device) => run('ios', device),
+      iosPhone: (device) => run('ios', device),
     };
   }
-  const script = (name) => (manager === 'npm' ? `npm run ${name}` : `${manager} ${name}`);
-  const extra = manager === 'npm' ? ' --' : '';
+  const script = (name, ...extra) =>
+    manager === 'npm'
+      ? { command: 'npm', args: ['run', name, ...(extra.length ? ['--', ...extra] : [])] }
+      : { command: manager, args: [name, ...extra] };
   return {
-    android: script('android'),
-    androidOn: (device) => `${script('android')}${extra} --device ${quote(device)}`,
-    ios: script('ios'),
-    iosOn: (device) => `${script('ios')}${extra} --simulator ${quote(device)}`,
-    iosPhone: (device) => `${script('ios')}${extra} --device ${quote(device)}`,
+    android: () => script('android'),
+    androidOn: (device) => script('android', '--device', device),
+    ios: () => script('ios'),
+    iosOn: (device) => script('ios', '--simulator', device),
+    iosPhone: (device) => script('ios', '--device', device),
   };
+}
+
+export function runCommands(options) {
+  const run = runInvocations(options);
+  const text = ({ command, args }) => [command, ...args].map(quote).join(' ');
+  return {
+    android: text(run.android()),
+    androidOn: (device) => text(run.androidOn(device)),
+    ios: text(run.ios()),
+    iosOn: (device) => text(run.iosOn(device)),
+    iosPhone: (device) => text(run.iosPhone(device)),
+  };
+}
+
+// Everything `rn-buddy run` can run the app on, with the platform each one belongs to.
+// Android devices that aren't ready (unauthorized, offline) are left out.
+export function runTargets({ android, ios }) {
+  const running = new Set(android.devices.map((device) => device.avd).filter(Boolean));
+  const targets = [];
+  for (const d of android.devices.filter((d) => d.state === 'device')) {
+    const kind = d.emulator ? 'emulator' : 'phone';
+    targets.push({ platform: 'android', kind, name: (d.emulator ? d.avd : d.model) ?? d.serial, id: d.serial, running: true });
+  }
+  for (const name of android.avds.filter((avd) => !running.has(avd))) {
+    targets.push({ platform: 'android', kind: 'emulator', name, id: name, running: false });
+  }
+  for (const phone of ios.phones.filter((p) => !/unavailable/i.test(p.state))) {
+    targets.push({ platform: 'ios', kind: 'phone', name: phone.name, id: phone.udid || phone.name, running: true });
+  }
+  for (const sim of ios.simulators) {
+    targets.push({
+      platform: 'ios',
+      kind: 'simulator',
+      name: sim.name,
+      id: sim.udid,
+      runtime: sim.runtime,
+      version: sim.version,
+      running: sim.state === 'Booted',
+    });
+  }
+  return targets;
+}
+
+// What to offer in the list: simulators that are booted or on the newest iOS version, like `device`.
+export function pickableTargets(targets) {
+  const newest = targets.find((t) => t.kind === 'simulator' && !t.running)?.version;
+  return targets.filter((t) => t.kind !== 'simulator' || t.running || t.version === newest);
+}
+
+// The command that builds the app and opens it on this target. The platform comes from the target.
+export function runInvocation(target, options) {
+  const run = runInvocations(options);
+  if (target.platform === 'android') return run.androidOn(target.id);
+  return target.kind === 'simulator' ? run.iosOn(target.name) : run.iosPhone(target.id);
+}
+
+// Waits for an emulator that was just started to finish booting; returns its adb serial, or null
+// when it doesn't show up in time. `sleep(ms)` can be faked in tests.
+export async function waitForEmulator(avd, tools, { run = runTool, sleep = pause, timeout = 180000, interval = 2000 } = {}) {
+  const deadline = Date.now() + timeout;
+  do {
+    const adb = run(tools.adb, ['devices', '-l']);
+    for (const d of parseAdbDevices(adb.stdout).filter((d) => d.emulator && d.state === 'device')) {
+      const name = run(tools.adb, ['-s', d.serial, 'emu', 'avd', 'name'], { timeout: 5000 });
+      if (name.status !== 0 || name.stdout.split('\n')[0].trim() !== avd) continue;
+      const booted = run(tools.adb, ['-s', d.serial, 'shell', 'getprop', 'sys.boot_completed'], { timeout: 5000 });
+      if (booted.stdout.trim() === '1') return d.serial;
+    }
+    await sleep(interval);
+  } while (Date.now() < deadline);
+  return null;
 }
 
 export function isMissing(result) {
@@ -285,7 +363,11 @@ export function isMissing(result) {
 }
 
 function quote(text) {
-  return /^[\w.-]+$/.test(text) ? text : `"${text}"`;
+  return /^[\w.:/=@+-]+$/.test(text) ? text : `"${text}"`;
+}
+
+function pause(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function compareVersions(a = '0', b = '0') {

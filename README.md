@@ -5,6 +5,7 @@ A CLI for people learning React Native. Run it inside your project when you want
 **Understand your project**
 - **`explain`**: what each package, file, folder and setting is for, in plain English
 - **`learn`**: short lessons in the terminal: reload vs rebuild, Metro, pods, the New Architecture, ...
+- **`structure`**: show the folder tree of your project, with what each folder and file is for
 
 **When something is wrong**
 - **`why`**: paste an error or pipe a build log, and get what it means and how to fix it
@@ -15,12 +16,12 @@ A CLI for people learning React Native. Run it inside your project when you want
 - **`check`**: find common React Native mistakes in your code and packages
 
 **Change your project**
-- **`structure`**: add a `src/` folder layout with a README in each folder
 - **`add`**: install navigation, state, storage, permissions, icons, animations and more, including the native setup
 - **`app`**: change the app name, bundle ID, icon, splash screen and version on both platforms
 - **`upgrade`**: upgrade React Native with a plan
 
 **Run and ship**
+- **`run`**: pick a device and run the app on it; the platform is detected
 - **`device`**: list and start emulators and simulators, connect a phone to Metro
 - **`release`**: check the app before releasing, and make your first signed Android build
 - **`new`**: create an app and set it up with recipes in one go
@@ -63,7 +64,8 @@ rn-buddy env --fix                     # fix what can be fixed safely
 rn-buddy status                        # reload, rebuild or pod install?
 rn-buddy clean                         # pick caches to clear
 rn-buddy check                         # common mistakes in your code
-rn-buddy structure                     # add the src/ folder layout
+rn-buddy structure                     # folder tree of the project, with notes
+rn-buddy structure src --depth 4       # one folder, opened deeper
 rn-buddy add                           # list the recipes
 rn-buddy add navigation                # install a recipe
 rn-buddy add permissions camera        # recipes can take names
@@ -74,6 +76,8 @@ rn-buddy app version patch             # bump the version everywhere
 rn-buddy upgrade                       # upgrade React Native
 rn-buddy device                        # list emulators, simulators and phones
 rn-buddy device connect --port 3000    # Android phone on USB: reach Metro and your API
+rn-buddy run                           # pick a device from a list and run the app on it
+rn-buddy run "Pixel 8"                 # run the app on one device (name or id)
 rn-buddy release check                 # checklist before releasing
 rn-buddy release android               # first signed build for Google Play
 rn-buddy new MyApp                     # create an app and set it up
@@ -487,52 +491,49 @@ Project
 - It reads `App.tsx`, `index.js`, `src/`, `app/`, `components/` and `screens/`, and skips comments and tests.
 - `--offline` skips the React Native Directory check.
 
-## `structure`: where should my code go?
+## `structure`: what is in my project?
 
-Creates a `src/` folder with one folder per kind of code. Each folder gets a README that explains what goes in it, with an example:
-
-```
-src/
-  README.md        ← map of the folders, and which folder may import which
-  screens/         ← one component per screen
-  components/      ← reusable UI pieces
-  navigation/      ← navigators
-  hooks/           ← custom hooks (useSomething)
-  services/        ← API calls, storage
-  store/           ← state shared between screens
-  theme/           ← colors, spacing, font sizes
-  utils/           ← small helper functions
-  assets/          ← images and fonts
-  types/           ← shared TypeScript types (TypeScript projects only)
-```
-
-- The examples use TypeScript if the project has a `tsconfig.json`, and JavaScript otherwise.
-- Existing files are never overwritten, and nothing outside `src/` is changed, so it is safe to run again.
-- Run `rn-buddy structure --dry-run` first to see what it would create.
-- Git doesn't track empty folders. Each folder has a README, so the layout gets committed.
-
-### `structure --feature-based`
+Prints the folder tree of your project, with a short note on every folder and file rn-buddy knows:
 
 ```
-$ rn-buddy structure --feature-based
-Folder layout (feature-based, TypeScript examples)
-  + src/README.md                           All your app code lives here, grouped by feature
-  + src/features/README.md                  One folder per feature of the app
-  + src/features/auth/README.md             An example feature
-  + src/features/auth/screens/README.md     The screens of the auth feature
-  + src/features/auth/components/README.md  UI pieces only used by the auth feature
-  + src/features/auth/hooks/README.md       Hooks with the logic of the auth feature
-  + src/components/README.md                Shared UI pieces used by more than one feature
-  + src/navigation/README.md                Navigators
-  + src/services/README.md                  Shared code that talks to the outside world
-  + src/theme/README.md                     Colors, spacing and font sizes in one place
-  + src/utils/README.md                     Small helper functions shared by features
-  + src/types/README.md                     TypeScript types used by many files
+$ rn-buddy structure
+DemoApp · React Native 0.88.0
+/Users/me/code/DemoApp
+
+./
+├── android/              Native Android project
+│   ├── app/              The Android app module
+│   │   └── build.gradle  App build settings
+│   └── build.gradle      Project build settings shared by every module
+├── ios/                  Native iOS project
+│   ├── DemoApp/          The iOS app target
+│   ├── Pods/             Native iOS libraries installed by `pod install`
+│   └── Podfile           The iOS native libraries
+├── node_modules/         Installed JS packages for this project only
+├── src/                  Your app code
+│   ├── components/       Reusable UI pieces
+│   │   └── Button.tsx
+│   └── screens/          One component per screen of the app
+│       └── HomeScreen.tsx
+├── App.tsx               Root component
+├── index.js              Entry point
+└── package.json          Lists your JS packages and npm scripts
+
+9 folders, 8 files · 3 levels deep
+→ Go deeper with --depth 5, or look at one folder: rn-buddy structure src
 ```
 
-- One folder per feature (`src/features/auth/`) instead of one per kind of code. `src/README.md` explains when each layout is better: type-based for small apps and learning, feature-based for growing apps and teams.
-- Features don't import each other's internals, only what a feature exports from its `index.ts`. Shared folders never import from `features/`.
-- Like the default layout: READMEs only, existing files are never overwritten, and `--dry-run` shows the plan first.
+```sh
+rn-buddy structure                # the whole project, 3 levels deep
+rn-buddy structure src            # only src/
+rn-buddy structure --depth 5      # open more levels (-L 5)
+rn-buddy structure --folders      # folders only, no files
+```
+
+- Folders come first, then files, each sorted by name. Folders below the depth show how many items are inside, for example `(14 inside)`.
+- The note comes from the folder's own `README.md` if it has one, and otherwise from the same notes `rn-buddy explain` uses. Only the first sentence is shown. Use `rn-buddy explain <path>` for the full explanation.
+- `node_modules/`, `Pods/`, `build/` and a few other install or build folders are listed but never opened. `.git/` and `.DS_Store` are left out. Folders with more than 40 entries end with `… and N more`. Symlinks are not followed.
+- It only reads: `structure` never changes your files.
 
 ## `add`: install features the right way
 
@@ -764,6 +765,19 @@ rn-buddy device connect --port 3000    # Android phone on USB: reach Metro and y
 | Android phone on USB | `localhost`, after `rn-buddy device connect` |
 | Any phone on the same Wi-Fi | your computer's LAN IP (rn-buddy prints it) |
 
+### `run`: run the app on a device you pick
+
+```sh
+rn-buddy run                  # lists your devices, you type a number
+rn-buddy run "iPhone 16 Pro"  # a device name, or part of it
+rn-buddy run R58M123ABC       # or its id (adb serial, simulator UDID, iPhone UDID)
+```
+
+- The platform comes from the device: an Android phone or emulator runs `android`, an iPhone or simulator runs `ios`. You don't pass a platform.
+- It runs your project's own command (`npm run android -- --device <id>`, `npm run ios -- --simulator <name>`, or `npx expo run:android` / `run:ios` for Expo) and shows it first.
+- An emulator that isn't running is started, and rn-buddy waits for it to boot before building.
+- With one device only, `rn-buddy run` uses it without asking. Without a terminal (CI, a pipe) it needs the device name.
+
 `device` finds `adb` and `emulator` in `ANDROID_HOME` (or `ANDROID_SDK_ROOT`, or Android Studio's default folder) and on your PATH. iOS devices are only listed on macOS.
 
 ## `release`: ship your first build
@@ -831,11 +845,9 @@ rn-buddy new MyApp  creates a React Native Community CLI app and sets it up
 Plan
   1.  Create MyApp with the React Native Community CLI
       $ npx @react-native-community/cli@latest init MyApp
-  2.  Add the src/ folder layout
-      $ rn-buddy structure
-  3.  Add the navigation recipe: Move between screens with React Navigation (native stack)
+  2.  Add the navigation recipe: Move between screens with React Navigation (native stack)
       $ rn-buddy add navigation
-  4.  Add the api recipe: Load data from an API with TanStack Query
+  3.  Add the api recipe: Load data from an API with TanStack Query
       $ rn-buddy add api
 
 Create MyApp in /Users/me/code/MyApp? (Y/n)
@@ -848,7 +860,6 @@ Create MyApp in /Users/me/code/MyApp? (Y/n)
 | Option | Meaning |
 |---|---|
 | `-r, --recipes <names>` | Recipes to add, comma separated, e.g. `navigation,state,api` |
-| `--no-structure` | Skip the `src/` folder layout |
 | `-y, --yes` | Don't ask questions (no recipes unless `--recipes` is given) |
 
 ## Expo projects
@@ -870,7 +881,7 @@ rn-buddy is made for React Native Community CLI projects, but it recognizes Expo
 
 - [x] `explain`: understand packages, files, native files and settings
 - [x] `env`: check Node, Java, Ruby, the Android SDK, Xcode and lockfiles
-- [x] `structure`: add a `src/` folder layout with a README in each folder
+- [x] `structure`: the folder tree of your project, with what each folder and file is for
 - [x] `add <recipe | package>`: 15 recipes with the native setup, and `--undo`
 - [x] `why`, `doctor`, `status`, `clean`, `check`: when something goes wrong
 - [x] `app`, `upgrade`, `device`, `release`, `new`, `learn`
