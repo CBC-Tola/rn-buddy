@@ -111,6 +111,18 @@ export function parseDevicectl(text) {
     .filter((device) => device.name && /iPhone|iPad/i.test(`${device.model} ${device.name}`));
 }
 
+// `xcrun devicectl list devices --json-output` has what the table lacks: the hardware UDID that
+// `react-native run-ios --device` expects (00008101-001468603E11001E), not the CoreDevice identifier
+// shown in the table. Returns a Map of CoreDevice identifier -> hardware UDID.
+export function parseDevicectlUdids(json) {
+  try {
+    const devices = JSON.parse(json).result?.devices ?? [];
+    return new Map(devices.filter((d) => d.identifier && d.hardwareProperties?.udid).map((d) => [d.identifier, d.hardwareProperties.udid]));
+  } catch {
+    return new Map();
+  }
+}
+
 // Everything we can find. Missing tools give { missing: true } instead of throwing.
 // `platform` decides whether to look for iOS at all (macOS only).
 // `ios: false` skips the iOS lookups when only Android matters (`device connect`).
@@ -145,7 +157,15 @@ export function listDevices({
     else ios.simulators = parseSimulators(simctl.stdout);
     // devicectl comes with Xcode 15+; any failure just means no phones to show.
     const devicectl = run('xcrun', ['devicectl', 'list', 'devices'], { timeout: 10000 });
-    if (!isMissing(devicectl) && devicectl.status === 0) ios.phones = parseDevicectl(devicectl.stdout);
+    if (!isMissing(devicectl) && devicectl.status === 0) {
+      ios.phones = parseDevicectl(devicectl.stdout);
+      if (ios.phones.length > 0) {
+        const json = run('xcrun', ['devicectl', 'list', 'devices', '--quiet', '--json-output', '/dev/stdout'], { timeout: 10000 });
+        const udids = json.status === 0 ? parseDevicectlUdids(json.stdout) : new Map();
+        // The table's identifier stays as a fallback when the JSON isn't available.
+        for (const phone of ios.phones) phone.udid = udids.get(phone.udid) ?? phone.udid;
+      }
+    }
   }
   return { android, ios };
 }

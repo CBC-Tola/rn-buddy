@@ -12,6 +12,7 @@ import {
   parseAdbDevices,
   parseAvds,
   parseDevicectl,
+  parseDevicectlUdids,
   parsePorts,
   parseSimulators,
   reverseCommands,
@@ -113,6 +114,25 @@ test('parseDevicectl reads the table and keeps iPhones and iPads', () => {
     { name: "Tola's iPhone", udid: '9A1B2C3D-0000-1111-2222-333344445555', state: 'available (paired)', model: 'iPhone 15 Pro (iPhone16,1)' },
   ]);
   assert.deepEqual(parseDevicectl('No devices found.\n'), []);
+});
+
+test('parseDevicectlUdids maps the CoreDevice identifier to the hardware UDID', () => {
+  const json = JSON.stringify({
+    result: { devices: [{ identifier: '9A1B2C3D-0000-1111-2222-333344445555', hardwareProperties: { udid: '00008101-001468603E11001E' } }, { identifier: 'X' }] },
+  });
+  assert.deepEqual([...parseDevicectlUdids(json)], [['9A1B2C3D-0000-1111-2222-333344445555', '00008101-001468603E11001E']]);
+  assert.equal(parseDevicectlUdids('not json').size, 0);
+});
+
+test('listDevices uses the hardware UDID for phones, and falls back to the table identifier', () => {
+  const json = JSON.stringify({
+    result: { devices: [{ identifier: '9A1B2C3D-0000-1111-2222-333344445555', hardwareProperties: { udid: '00008101-001468603E11001E' } }] },
+  });
+  const opts = { env: {}, platform: 'darwin', exists: () => false };
+  const withJson = listDevices({ ...opts, run: fakeRun({ ...ALL_TOOLS, 'xcrun devicectl list devices --quiet --json-output /dev/stdout': json }) });
+  assert.equal(withJson.ios.phones[0].udid, '00008101-001468603E11001E');
+  const without = listDevices({ ...opts, run: fakeRun(ALL_TOOLS) });
+  assert.equal(without.ios.phones[0].udid, '9A1B2C3D-0000-1111-2222-333344445555');
 });
 
 test('androidSdk and androidTools find the SDK like Android Studio installs it', () => {

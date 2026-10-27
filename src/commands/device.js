@@ -117,7 +117,7 @@ function iosRows({ missing, simulators, phones }) {
   const rows = phones.map((p) => ({
     name: p.name,
     status: /unavailable/i.test(p.state) ? 'warn' : 'ok',
-    message: `iPhone · ${p.state || 'connected'}${p.model ? pc.dim(`  ${p.model}`) : ''}`,
+    message: `iPhone · ${p.state || 'connected'}${p.model ? pc.dim(`  ${p.model}`) : ''}${p.udid ? `  ${pc.dim(p.udid)}` : ''}`,
     hint: /unavailable/i.test(p.state) ? 'Unlock it, connect it with a cable and tap Trust This Computer' : undefined,
   }));
   if (simulators.length === 0) {
@@ -134,8 +134,8 @@ function iosRows({ missing, simulators, phones }) {
   for (const sim of shown) {
     rows.push(
       sim.state === 'Booted'
-        ? { name: sim.name, status: 'ok', message: `simulator · ${sim.runtime} · booted` }
-        : { name: sim.name, status: 'skip', message: `simulator · ${sim.runtime}` },
+        ? { name: sim.name, status: 'ok', message: `simulator · ${sim.runtime} · booted  ${pc.dim(sim.udid)}` }
+        : { name: sim.name, status: 'skip', message: `simulator · ${sim.runtime}  ${pc.dim(sim.udid)}` },
     );
   }
   const hidden = simulators.length - shown.length;
@@ -156,7 +156,7 @@ function nextSteps({ android, ios }, commands) {
   const sim = booted ?? ios.simulators[0];
   if (sim) steps.push([commands.iosOn(sim.name), booted ? 'run on the booted simulator' : 'boots this simulator and runs the app']);
   const phone = ios.phones.find((p) => !/unavailable/i.test(p.state));
-  if (phone) steps.push([commands.iosPhone(phone.name), 'run on your iPhone (needs a signing team in Xcode)']);
+  if (phone) steps.push([commands.iosPhone(phone.udid || phone.name), 'run on your iPhone (needs a signing team in Xcode)']);
   return steps;
 }
 

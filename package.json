@@ -1,6 +1,6 @@
 {
   "name": "rn-buddy",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A CLI for React Native learners: explains your project and its errors in plain English, checks your setup, and does the hard native setup for you.",
   "type": "module",
   "bin": {
