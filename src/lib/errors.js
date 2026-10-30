@@ -15,7 +15,7 @@ export const LEARN_TOPICS = data.learn;
 export const CLEAN_LEVELS = data.clean;
 export const ERRORS = data.errors.map(compile);
 
-export const ISSUES_URL = 'https://github.com/CBC-Tola/rn-buddy/issues';
+export const REPORT_EMAIL = 'vittola.work@gmail.com';
 
 const ERROR_WORDS = /\b(error|exception|failed|failure|fatal|cannot|can't|could not|couldn't|unable to|not found|denied|invalid)\b/i;
 

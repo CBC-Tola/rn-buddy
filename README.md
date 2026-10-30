@@ -253,7 +253,7 @@ rn-buddy why --file build.log                        # read a saved log
 - **Long logs:** Gradle prints the cause far above `BUILD FAILED`, and Xcode buries it among warnings. `why` skips those generic lines, explains the first real error, and lists any other errors it found below.
 - **Checks your project:** is the package in package.json and in node_modules? Is the pod in `ios/Podfile.lock`? Is your JDK the one the project wants (the same check as `env`)? Are `ANDROID_HOME` and `android/local.properties` set? In Expo projects, are you in Expo Go or a development build?
 - **Knows about 65 errors** from Metro, native modules, Android/Gradle, iOS/Xcode/CocoaPods, React and Expo. It works offline.
-- **Unknown error?** It shows the lines that look like errors, so you know what to search for, and exits with code 1. [Open an issue](https://github.com/CBC-Tola/rn-buddy/issues) to get it added.
+- **Unknown error?** It shows the lines that look like errors, so you know what to search for, and exits with code 1. [Email it](mailto:vittola.work@gmail.com) to get it added.
 
 | Option | Meaning |
 |---|---|
@@ -887,12 +887,12 @@ rn-buddy is made for React Native Community CLI projects, but it recognizes Expo
 - [x] `app`, `upgrade`, `device`, `release`, `new`, `learn`
 - [x] Expo projects
 
-See [feature-v2.md](feature-v2.md) for the ideas behind these commands.
+## Feedback
 
-## Contributing
-
-Found a wrong note, a missing package or an error `why` doesn't know? Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+Found a wrong note, a missing package or an error `why` doesn't know? Email it to [vittola.work@gmail.com](mailto:vittola.work@gmail.com).
 
 ## License
 
-MIT
+rn-buddy is free to install and use, but it is not open source. You may not copy, fork, modify or redistribute its code. The files it creates in your project are yours. See [LICENSE](LICENSE) for the full terms.
+
+Versions 0.5.0 and earlier were released under the MIT license.

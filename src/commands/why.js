@@ -1,7 +1,7 @@
 import { fstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import pc from 'picocolors';
-import { errorLines, explainMatch, findMatches, ISSUES_URL, matchTitle } from '../lib/errors.js';
+import { errorLines, explainMatch, findMatches, matchTitle, REPORT_EMAIL } from '../lib/errors.js';
 import { readProject } from '../lib/project.js';
 import { printStep } from '../lib/ui.js';
 
@@ -157,7 +157,7 @@ function printNoMatch(text) {
   console.log('');
   console.log(pc.dim('→ Search for the first error line (the first one is usually the cause, the rest follow from it).'));
   console.log(pc.dim('→ Check your setup: rn-buddy doctor, or rn-buddy env.'));
-  console.log(pc.dim(`→ Help add it: open an issue with the error at ${ISSUES_URL}`));
+  console.log(pc.dim(`→ Help add it: email the error to ${REPORT_EMAIL}`));
 }
 
 function printUsage() {

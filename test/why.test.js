@@ -508,7 +508,7 @@ test('CLI: unknown errors exit 1 and show the error-looking lines', () => {
   assert.match(stdout, /rn-buddy doesn't know this error yet/);
   assert.match(stdout, /> FATAL: the flux capacitor could not be charged/);
   assert.match(stdout, /rn-buddy doctor/);
-  assert.match(stdout, /https:\/\/github\.com\/CBC-Tola\/rn-buddy\/issues/);
+  assert.match(stdout, /email the error to vittola\.work@gmail\.com/);
 });
 
 test('CLI: no input shows how to use it', () => {

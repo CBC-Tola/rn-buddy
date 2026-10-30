@@ -1,6 +1,6 @@
 {
   "name": "rn-buddy",
-  "version": "0.4.0",
+  "version": "0.5.1",
   "description": "A CLI for React Native learners: explains your project and its errors in plain English, checks your setup, and does the hard native setup for you.",
   "type": "module",
   "bin": {
@@ -25,20 +25,11 @@
     "doctor",
     "expo"
   ],
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "author": "Vit Tola <vittola.work@gmail.com>",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/CBC-Tola/rn-buddy.git"
-  },
-  "homepage": "https://github.com/CBC-Tola/rn-buddy#readme",
-  "bugs": {
-    "url": "https://github.com/CBC-Tola/rn-buddy/issues"
-  },
   "dependencies": {
     "commander": "^15.0.0",
     "picocolors": "^1.1.1",
-    "semver": "^7.8.5",
-    "zustand": "^5.0.16"
+    "semver": "^7.8.5"
   }
 }
